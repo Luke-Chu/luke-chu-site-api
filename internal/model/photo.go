@@ -24,9 +24,10 @@ type Photo struct {
 	Aperture        *string    `db:"aperture"`
 	ShutterSpeed    *string    `db:"shutter_speed"`
 	ISO             *int       `db:"iso"`
-	FocalLength     *string    `db:"focal_length"`
-	FocalLength35mm *string    `db:"focal_length_35mm"`
+	FocalLength     *float64   `db:"focal_length"`
+	FocalLength35mm *float64   `db:"focal_length_35mm"`
 	MeteringMode    *string    `db:"metering_mode"`
+	ExposureComp    *string    `db:"exposure_compensation"`
 	ExposureProgram *string    `db:"exposure_program"`
 	WhiteBalance    *string    `db:"white_balance"`
 	Flash           *string    `db:"flash"`

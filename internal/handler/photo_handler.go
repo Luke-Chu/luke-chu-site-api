@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 
 	"luke-chu-site-api/internal/app/middleware"
 	"luke-chu-site-api/internal/dto/request"
@@ -45,13 +46,18 @@ func (h *PhotoHandler) ListPhotos(c *gin.Context) {
 
 func (h *PhotoHandler) GetPhotoDetail(c *gin.Context) {
 	photoUUID := c.Param("uuid")
+	if _, err := uuid.Parse(photoUUID); err != nil {
+		response.Error(c, http.StatusBadRequest, 40002, "invalid uuid")
+		return
+	}
+
 	data, err := h.photoService.GetPhotoDetail(c.Request.Context(), photoUUID)
 	if err != nil {
 		if errors.Is(err, service.ErrPhotoNotFound) {
 			response.Error(c, http.StatusNotFound, 40401, "photo not found")
 			return
 		}
-		response.Error(c, http.StatusBadRequest, 40002, err.Error())
+		response.Error(c, http.StatusInternalServerError, 50002, "internal server error")
 		return
 	}
 

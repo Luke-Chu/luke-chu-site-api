@@ -109,19 +109,23 @@ func (s *photoService) GetPhotoDetail(ctx context.Context, photoUUID string) (*r
 		return nil, fmt.Errorf("invalid uuid: %w", err)
 	}
 
-	photo, err := s.photoRepo.GetPhotoByUUID(ctx, photoUUID)
+	photo, err := s.photoRepo.GetPhotoDetailByUUID(ctx, photoUUID)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return nil, ErrPhotoNotFound
-		case errors.Is(err, repository.ErrNotImplemented):
-			return mockPhotoDetail(photoUUID), nil
 		default:
 			return nil, fmt.Errorf("get photo detail failed: %w", err)
 		}
 	}
 
+	tags, err := s.photoRepo.GetPhotoTagsByPhotoID(ctx, photo.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get photo detail tags failed: %w", err)
+	}
+
 	return &response.PhotoDetailData{
+		ID:              photo.ID,
 		UUID:            photo.UUID.String(),
 		Filename:        photo.Filename,
 		TitleCN:         ptrString(photo.TitleCN),
@@ -138,9 +142,10 @@ func (s *photoService) GetPhotoDetail(ctx context.Context, photoUUID string) (*r
 		Aperture:        ptrString(photo.Aperture),
 		ShutterSpeed:    ptrString(photo.ShutterSpeed),
 		ISO:             ptrInt(photo.ISO),
-		FocalLength:     ptrString(photo.FocalLength),
-		FocalLength35mm: ptrString(photo.FocalLength35mm),
+		FocalLength:     ptrFloat(photo.FocalLength),
+		FocalLength35mm: ptrFloat(photo.FocalLength35mm),
 		MeteringMode:    ptrString(photo.MeteringMode),
+		ExposureComp:    ptrString(photo.ExposureComp),
 		ExposureProgram: ptrString(photo.ExposureProgram),
 		WhiteBalance:    ptrString(photo.WhiteBalance),
 		Flash:           ptrString(photo.Flash),
@@ -150,22 +155,10 @@ func (s *photoService) GetPhotoDetail(ctx context.Context, photoUUID string) (*r
 		LikeCount:       photo.LikeCount,
 		DownloadCount:   photo.DownloadCount,
 		ViewCount:       photo.ViewCount,
+		CreatedAt:       photo.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       photo.UpdatedAt.Format(time.RFC3339),
+		Tags:            tags,
 	}, nil
-}
-
-func mockPhotoDetail(photoUUID string) *response.PhotoDetailData {
-	return &response.PhotoDetailData{
-		UUID:          photoUUID,
-		Filename:      "mock.jpg",
-		TitleCN:       "示例照片",
-		TitleEN:       "Sample Photo",
-		Orientation:   "landscape",
-		Width:         1920,
-		Height:        1280,
-		LikeCount:     0,
-		ViewCount:     0,
-		DownloadCount: 0,
-	}
 }
 
 func ptrString(v *string) string {
@@ -176,6 +169,13 @@ func ptrString(v *string) string {
 }
 
 func ptrInt(v *int) int {
+	if v == nil {
+		return 0
+	}
+	return *v
+}
+
+func ptrFloat(v *float64) float64 {
 	if v == nil {
 		return 0
 	}

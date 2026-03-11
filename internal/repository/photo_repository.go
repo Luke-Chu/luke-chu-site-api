@@ -34,6 +34,8 @@ type PhotoRepository interface {
 	ListPhotos(ctx context.Context, req *request.PhotoListRequest) ([]*model.Photo, error)
 	CountPhotos(ctx context.Context, req *request.PhotoListRequest) (int64, error)
 	ListPhotoTagsByPhotoIDs(ctx context.Context, photoIDs []int64) (map[int64][]response.PhotoTagItem, error)
+	GetPhotoDetailByUUID(ctx context.Context, uuid string) (*model.Photo, error)
+	GetPhotoTagsByPhotoID(ctx context.Context, photoID int64) ([]response.TagItem, error)
 	GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error)
 	IncrementViewCount(ctx context.Context, uuid string) error
 	IncrementDownloadCount(ctx context.Context, uuid string) error
@@ -158,6 +160,10 @@ ORDER BY pt.photo_id ASC, t.id ASC
 }
 
 func (r *SQLXPhotoRepository) GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error) {
+	return r.GetPhotoDetailByUUID(ctx, uuid)
+}
+
+func (r *SQLXPhotoRepository) GetPhotoDetailByUUID(ctx context.Context, uuid string) (*model.Photo, error) {
 	if r.db == nil {
 		return nil, ErrRepositoryNotReady
 	}
@@ -173,9 +179,9 @@ func (r *SQLXPhotoRepository) GetPhotoByUUID(ctx context.Context, uuid string) (
 	var photo model.Photo
 	err = r.db.GetContext(ctx, &photo, `
 SELECT
-	id, uuid, filename, title_cn, title_en, description, category, shot_time, width, height, orientation, resolution,
-	camera_model, lens_model, aperture, shutter_speed, iso, focal_length, focal_length_35mm, metering_mode,
-	exposure_program, white_balance, flash, thumb_url, display_url, original_url, like_count, download_count,
+	id, uuid, filename, title_cn, title_en, description, category, shot_time, width, height, resolution, orientation,
+	camera_model, lens_model, focal_length, focal_length_35mm, aperture, shutter_speed, iso, metering_mode,
+	exposure_compensation, exposure_program, white_balance, flash, thumb_url, display_url, original_url, like_count, download_count,
 	view_count, is_published, created_at, updated_at
 FROM photos
 WHERE uuid = $1 AND is_published = TRUE
@@ -186,6 +192,40 @@ LIMIT 1
 	}
 
 	return &photo, nil
+}
+
+func (r *SQLXPhotoRepository) GetPhotoTagsByPhotoID(ctx context.Context, photoID int64) ([]response.TagItem, error) {
+	if r.db == nil {
+		return nil, ErrRepositoryNotReady
+	}
+
+	type tagRow struct {
+		ID      int64  `db:"id"`
+		Name    string `db:"name"`
+		TagType string `db:"tag_type"`
+	}
+
+	rows := make([]tagRow, 0)
+	err := r.db.SelectContext(ctx, &rows, `
+SELECT t.id, t.name, t.tag_type
+FROM photo_tags pt
+JOIN tags t ON t.id = pt.tag_id
+WHERE pt.photo_id = $1
+ORDER BY t.tag_type ASC, t.id ASC
+`, photoID)
+	if err != nil {
+		return nil, fmt.Errorf("get photo tags failed: %w", err)
+	}
+
+	result := make([]response.TagItem, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, response.TagItem{
+			ID:      row.ID,
+			Name:    row.Name,
+			TagType: row.TagType,
+		})
+	}
+	return result, nil
 }
 
 func (r *SQLXPhotoRepository) IncrementViewCount(ctx context.Context, uuid string) error {

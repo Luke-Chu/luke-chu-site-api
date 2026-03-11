@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -86,26 +85,29 @@ func (h *PhotoHandler) ViewPhoto(c *gin.Context) {
 
 func (h *PhotoHandler) LikePhoto(c *gin.Context) {
 	photoUUID := c.Param("uuid")
-
-	var req request.PhotoActionRequest
-	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
-		response.Error(c, http.StatusBadRequest, 40003, "invalid request body")
+	if _, err := uuid.Parse(photoUUID); err != nil {
+		response.Error(c, http.StatusBadRequest, 40002, "invalid uuid")
 		return
 	}
 
 	visitorHash, _ := c.Get(middleware.VisitorHashKey)
 	hash, _ := visitorHash.(string)
+	if hash == "" {
+		response.Error(c, http.StatusBadRequest, 40003, "visitor hash missing")
+		return
+	}
 
-	if err := h.behaviorService.LikePhoto(c.Request.Context(), photoUUID, hash); err != nil {
+	data, err := h.behaviorService.LikePhoto(c.Request.Context(), photoUUID, hash)
+	if err != nil {
 		if errors.Is(err, service.ErrPhotoNotFound) {
 			response.Error(c, http.StatusNotFound, 40401, "photo not found")
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, 50003, err.Error())
+		response.Error(c, http.StatusInternalServerError, 50003, "internal server error")
 		return
 	}
 
-	response.Success(c, gin.H{"uuid": photoUUID, "action": "like"})
+	response.Success(c, data)
 }
 
 func (h *PhotoHandler) DownloadPhoto(c *gin.Context) {

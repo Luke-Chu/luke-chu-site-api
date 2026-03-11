@@ -35,11 +35,12 @@ type PhotoRepository interface {
 	CountPhotos(ctx context.Context, req *request.PhotoListRequest) (int64, error)
 	ListPhotoTagsByPhotoIDs(ctx context.Context, photoIDs []int64) (map[int64][]response.PhotoTagItem, error)
 	GetPhotoDetailByUUID(ctx context.Context, uuid string) (*model.Photo, error)
+	GetPublishedPhotoBaseByUUID(ctx context.Context, uuid string) (*model.Photo, error)
 	GetPhotoTagsByPhotoID(ctx context.Context, photoID int64) ([]response.TagItem, error)
 	GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error)
 	IncrementViewCount(ctx context.Context, uuid string) (int64, error)
 	IncrementDownloadCount(ctx context.Context, uuid string) error
-	AddLike(ctx context.Context, uuid, visitorHash string) error
+	AddLike(ctx context.Context, uuid, visitorHash string) (bool, int64, error)
 }
 
 type SQLXPhotoRepository struct {
@@ -228,6 +229,25 @@ ORDER BY t.tag_type ASC, t.id ASC
 	return result, nil
 }
 
+func (r *SQLXPhotoRepository) GetPublishedPhotoBaseByUUID(ctx context.Context, uuid string) (*model.Photo, error) {
+	if r.db == nil {
+		return nil, ErrRepositoryNotReady
+	}
+
+	var photo model.Photo
+	err := r.db.GetContext(ctx, &photo, `
+SELECT id, uuid, like_count
+FROM photos
+WHERE uuid = $1
+  AND is_published = TRUE
+LIMIT 1
+`, uuid)
+	if err != nil {
+		return nil, err
+	}
+	return &photo, nil
+}
+
 func (r *SQLXPhotoRepository) IncrementViewCount(ctx context.Context, uuid string) (int64, error) {
 	if r.db == nil {
 		return 0, ErrRepositoryNotReady
@@ -253,65 +273,71 @@ func (r *SQLXPhotoRepository) IncrementDownloadCount(ctx context.Context, uuid s
 	return r.incrementCounter(ctx, uuid, "download_count")
 }
 
-func (r *SQLXPhotoRepository) AddLike(ctx context.Context, uuid, visitorHash string) error {
+func (r *SQLXPhotoRepository) AddLike(ctx context.Context, uuid, visitorHash string) (bool, int64, error) {
 	if r.db == nil {
-		return ErrRepositoryNotReady
-	}
-
-	ok, err := r.tableExists(ctx, "photos")
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrNotImplemented
-	}
-
-	ok, err = r.tableExists(ctx, "photo_like")
-	if err != nil {
-		return err
-	}
-	if !ok {
-		// TODO: schema will be finalized in docs/sql/init.sql and migrations.
-		return ErrNotImplemented
+		return false, 0, ErrRepositoryNotReady
 	}
 
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin tx failed: %w", err)
+		return false, 0, fmt.Errorf("begin tx failed: %w", err)
 	}
 	defer func() {
 		_ = tx.Rollback()
 	}()
 
 	var photoID int64
-	if err := tx.GetContext(ctx, &photoID, `SELECT id FROM photos WHERE uuid = $1 LIMIT 1`, uuid); err != nil {
-		return err
+	if err := tx.GetContext(ctx, &photoID, `
+SELECT id
+FROM photos
+WHERE uuid = $1
+  AND is_published = TRUE
+LIMIT 1
+`, uuid); err != nil {
+		return false, 0, err
 	}
 
-	_, err = tx.ExecContext(ctx, `
-INSERT INTO photo_like (photo_id, visitor_hash, created_at)
+	result, err := tx.ExecContext(ctx, `
+INSERT INTO photo_likes (photo_id, visitor_hash, created_at)
 VALUES ($1, $2, NOW())
 ON CONFLICT DO NOTHING
 `, photoID, visitorHash)
 	if err != nil {
-		return fmt.Errorf("insert photo_like failed: %w", err)
+		return false, 0, fmt.Errorf("insert photo_likes failed: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, 0, fmt.Errorf("check like insert rows failed: %w", err)
+	}
+
+	liked := rowsAffected > 0
+	var likeCount int64
+	if liked {
+		if err := tx.GetContext(ctx, &likeCount, `
 UPDATE photos
-SET like_count = (SELECT COUNT(1) FROM photo_like WHERE photo_id = $1),
+SET like_count = like_count + 1,
 	updated_at = NOW()
 WHERE id = $1
-`, photoID)
-	if err != nil {
-		return fmt.Errorf("update like_count failed: %w", err)
+RETURNING like_count
+`, photoID); err != nil {
+			return false, 0, fmt.Errorf("increment like_count failed: %w", err)
+		}
+	} else {
+		if err := tx.GetContext(ctx, &likeCount, `
+SELECT like_count
+FROM photos
+WHERE id = $1
+`, photoID); err != nil {
+			return false, 0, fmt.Errorf("query like_count failed: %w", err)
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit tx failed: %w", err)
+		return false, 0, fmt.Errorf("commit tx failed: %w", err)
 	}
 
-	return nil
+	return liked, likeCount, nil
 }
 
 func (r *SQLXPhotoRepository) incrementCounter(ctx context.Context, uuid, field string) error {

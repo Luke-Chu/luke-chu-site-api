@@ -32,7 +32,7 @@ Error:
 - `GET /api/v1/photos`
 - `GET /api/v1/photos/:uuid`
 - `POST /api/v1/photos/:uuid/view`
-- `POST /api/v1/photos/:uuid/like` (to be finalized)
+- `POST /api/v1/photos/:uuid/like`
 - `POST /api/v1/photos/:uuid/download` (to be finalized)
 - `GET /api/v1/tags`
 - `GET /api/v1/filters`
@@ -57,6 +57,36 @@ Return published photo detail for the detail page.
 ### Error Semantics
 
 - `400`: invalid UUID
+- `404`: photo not found
+- `500`: database/internal error
+
+## POST /api/v1/photos/:uuid/like
+
+### Purpose
+
+Like a published photo with visitor-based deduplication.
+
+### Path Param
+
+- `uuid`: photo UUID
+
+### Behavior
+
+- Validate UUID format.
+- Read `visitor_hash` from middleware context.
+- Transaction flow:
+  - locate published photo by UUID
+  - `INSERT INTO photo_likes ... ON CONFLICT DO NOTHING`
+  - if inserted: `like_count + 1`
+  - if conflict: keep count unchanged
+- Return:
+  - `liked = true` for first like
+  - `liked = false` for duplicate like
+  - latest `likeCount`
+
+### Error Semantics
+
+- `400`: invalid UUID / missing visitor hash
 - `404`: photo not found
 - `500`: database/internal error
 

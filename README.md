@@ -35,19 +35,20 @@ Default listen address: `:8080`.
 - `GET /api/v1/photos`
 - `GET /api/v1/photos/:uuid` (implemented with full detail + tags)
 - `POST /api/v1/photos/:uuid/view` (implemented with count increment)
-- `POST /api/v1/photos/:uuid/like` (skeleton, to be finalized)
+- `POST /api/v1/photos/:uuid/like` (implemented with dedup like)
 - `POST /api/v1/photos/:uuid/download` (skeleton, to be finalized)
 - `GET /api/v1/tags`
 - `GET /api/v1/filters`
 
 ## New In This Step
 
-- Completed `GET /api/v1/photos/:uuid` and `POST /api/v1/photos/:uuid/view`.
-- View API behavior:
+- Completed `GET /api/v1/photos/:uuid`, `POST /api/v1/photos/:uuid/view`, `POST /api/v1/photos/:uuid/like`.
+- Like API behavior:
   - UUID validation
-  - `is_published = true` update with `view_count = view_count + 1`
-  - returns latest `viewCount`
-  - `400 invalid uuid`, `404 photo not found`, `500 internal server error`
+  - visitor hash from middleware context
+  - transactional insert into `photo_likes` with unique `(photo_id, visitor_hash)`
+  - first like returns `liked=true` and increments `likeCount`
+  - repeated like returns `liked=false` with current `likeCount`
 
 ## Build
 

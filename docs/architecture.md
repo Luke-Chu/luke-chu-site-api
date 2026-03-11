@@ -69,3 +69,18 @@
 
 - 单元测试：聚焦工具函数和请求归一化逻辑
 - 接口集成测试：`httptest` + Gin Router + stub service，不依赖真实 PostgreSQL
+
+## CI/CD（GitHub Actions）
+
+### CI
+
+- 工作流：`.github/workflows/ci.yml`
+- 触发：`push(main)`、`pull_request`
+- 检查：`gofmt`、`go mod tidy` 一致性、`go vet`、`go test`、`go build`
+
+### CD
+
+- 工作流：`.github/workflows/release.yml`
+- 触发：`push tag(v*)` 或手动触发
+- 产物：多平台二进制（linux/darwin/windows）
+- 发布：tag 触发时自动创建 GitHub Release 并上传资产包

@@ -157,3 +157,38 @@ go test ./...
 ```
 
 产物路径：`bin/luke-chu-site-api`
+
+## CI/CD（GitHub Actions）
+
+已新增：
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/release.yml`
+
+### CI 流程
+
+触发条件：
+
+- `push` 到 `main`
+- 任意 `pull_request`
+
+执行内容：
+
+- `gofmt` 检查
+- `go mod tidy` 一致性检查
+- `go vet ./...`
+- `go test ./...`
+- `go build ./cmd/server`
+
+### CD / 发布流程
+
+触发条件：
+
+- 推送 tag（`v*`，例如 `v0.1.0`）
+- 手动触发 `workflow_dispatch`
+
+执行内容：
+
+- 构建多平台二进制：`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64`、`windows/amd64`
+- 自动打包产物（`tar.gz` / `zip`）
+- tag 触发时自动创建 GitHub Release 并上传产物

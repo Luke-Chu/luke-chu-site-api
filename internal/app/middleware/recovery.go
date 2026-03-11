@@ -1,13 +1,12 @@
 package middleware
 
 import (
-	"fmt"
-	"net/http"
 	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
+	"luke-chu-site-api/internal/constant"
 	dtoresponse "luke-chu-site-api/internal/dto/response"
 )
 
@@ -21,7 +20,7 @@ func Recovery(logger *zap.Logger) gin.HandlerFunc {
 					zap.ByteString("stack", debug.Stack()),
 				)
 
-				dtoresponse.Error(c, http.StatusInternalServerError, 50000, fmt.Sprintf("internal server error"))
+				dtoresponse.Error(c, 500, constant.CodeInternalServer, constant.MsgInternalServerError)
 				c.Abort()
 			}
 		}()

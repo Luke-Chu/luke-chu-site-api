@@ -78,6 +78,17 @@ OSS_PRESIGN_EXPIRE_SECONDS=300
 - `POST /api/v1/photos/:uuid/unlike`
 - `POST /api/v1/photos/:uuid/download`（返回临时签名 URL）
 
+## 统一错误码（当前版本）
+
+- `40000`：`invalid query params`
+- `40002`：`invalid uuid`
+- `40003`：`visitor hash missing`
+- `40401`：`photo not found`
+- `42901`：`too many behavior requests`
+- `42902`：`suspicious behavior blocked`
+- `50000`：`internal server error`
+- `50001~50006`：各业务模块内部错误（列表/详情/点赞/下载/标签/筛选）
+
 ## 查询性能基线（图库列表）
 
 已新增索引迁移脚本：

@@ -33,7 +33,7 @@ Error:
 - `GET /api/v1/photos/:uuid`
 - `POST /api/v1/photos/:uuid/view`
 - `POST /api/v1/photos/:uuid/like`
-- `POST /api/v1/photos/:uuid/download` (to be finalized)
+- `POST /api/v1/photos/:uuid/download`
 - `GET /api/v1/tags`
 - `GET /api/v1/filters`
 
@@ -87,6 +87,33 @@ Like a published photo with visitor-based deduplication.
 ### Error Semantics
 
 - `400`: invalid UUID / missing visitor hash
+- `404`: photo not found
+- `500`: database/internal error
+
+## POST /api/v1/photos/:uuid/download
+
+### Purpose
+
+Increase download count and return original download URL.
+
+### Path Param
+
+- `uuid`: photo UUID
+
+### Behavior
+
+- Validate UUID format.
+- Update published photo only:
+  - `download_count = download_count + 1`
+  - `updated_at = NOW()`
+- Return:
+  - `uuid`
+  - latest `downloadCount`
+  - `downloadUrl` (`original_url`)
+
+### Error Semantics
+
+- `400`: invalid UUID
 - `404`: photo not found
 - `500`: database/internal error
 

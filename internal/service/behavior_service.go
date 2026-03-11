@@ -13,7 +13,7 @@ import (
 type BehaviorService interface {
 	ViewPhoto(ctx context.Context, photoUUID string) (*response.PhotoViewData, error)
 	LikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoLikeData, error)
-	DownloadPhoto(ctx context.Context, photoUUID string) error
+	DownloadPhoto(ctx context.Context, photoUUID string) (*response.PhotoDownloadData, error)
 }
 
 type behaviorService struct {
@@ -54,13 +54,17 @@ func (s *behaviorService) LikePhoto(ctx context.Context, photoUUID, visitorHash 
 	return nil, fmt.Errorf("like photo failed: %w", err)
 }
 
-func (s *behaviorService) DownloadPhoto(ctx context.Context, photoUUID string) error {
-	err := s.photoRepo.IncrementDownloadCount(ctx, photoUUID)
+func (s *behaviorService) DownloadPhoto(ctx context.Context, photoUUID string) (*response.PhotoDownloadData, error) {
+	count, url, err := s.photoRepo.IncrementDownloadCount(ctx, photoUUID)
 	if err == nil || errors.Is(err, repository.ErrNotImplemented) || errors.Is(err, repository.ErrRepositoryNotReady) {
-		return nil
+		return &response.PhotoDownloadData{
+			UUID:          photoUUID,
+			DownloadCount: count,
+			DownloadURL:   url,
+		}, nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrPhotoNotFound
+		return nil, ErrPhotoNotFound
 	}
-	return fmt.Errorf("download photo failed: %w", err)
+	return nil, fmt.Errorf("download photo failed: %w", err)
 }

@@ -112,14 +112,20 @@ func (h *PhotoHandler) LikePhoto(c *gin.Context) {
 
 func (h *PhotoHandler) DownloadPhoto(c *gin.Context) {
 	photoUUID := c.Param("uuid")
-	if err := h.behaviorService.DownloadPhoto(c.Request.Context(), photoUUID); err != nil {
+	if _, err := uuid.Parse(photoUUID); err != nil {
+		response.Error(c, http.StatusBadRequest, 40002, "invalid uuid")
+		return
+	}
+
+	data, err := h.behaviorService.DownloadPhoto(c.Request.Context(), photoUUID)
+	if err != nil {
 		if errors.Is(err, service.ErrPhotoNotFound) {
 			response.Error(c, http.StatusNotFound, 40401, "photo not found")
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, 50004, err.Error())
+		response.Error(c, http.StatusInternalServerError, 50004, "internal server error")
 		return
 	}
 
-	response.Success(c, gin.H{"uuid": photoUUID, "action": "download"})
+	response.Success(c, data)
 }

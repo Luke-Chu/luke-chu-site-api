@@ -358,7 +358,7 @@ SELECT EXISTS (
 	FROM photo_downloads
 	WHERE photo_id = $1
 	  AND visitor_hash = $2
-	  AND created_at >= NOW() - INTERVAL '30 minutes'
+	  AND downloaded_at >= NOW() - INTERVAL '30 minutes'
 )
 `, base.PhotoID, visitorHash); err != nil {
 		return 0, "", false, fmt.Errorf("check photo_downloads window failed: %w", err)
@@ -372,7 +372,7 @@ SELECT EXISTS (
 	}
 
 	if _, err := tx.ExecContext(ctx, `
-INSERT INTO photo_downloads (photo_id, visitor_hash, created_at)
+INSERT INTO photo_downloads (photo_id, visitor_hash, downloaded_at)
 VALUES ($1, $2, NOW())
 `, base.PhotoID, visitorHash); err != nil {
 		return 0, "", false, fmt.Errorf("insert photo_downloads failed: %w", err)

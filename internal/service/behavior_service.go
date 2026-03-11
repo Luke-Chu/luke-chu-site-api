@@ -13,6 +13,7 @@ import (
 type BehaviorService interface {
 	ViewPhoto(ctx context.Context, photoUUID string) (*response.PhotoViewData, error)
 	LikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoLikeData, error)
+	UnlikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoUnlikeData, error)
 	DownloadPhoto(ctx context.Context, photoUUID string) (*response.PhotoDownloadData, error)
 }
 
@@ -52,6 +53,25 @@ func (s *behaviorService) LikePhoto(ctx context.Context, photoUUID, visitorHash 
 		return nil, ErrPhotoNotFound
 	}
 	return nil, fmt.Errorf("like photo failed: %w", err)
+}
+
+func (s *behaviorService) UnlikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoUnlikeData, error) {
+	if visitorHash == "" {
+		return nil, fmt.Errorf("visitor hash is required")
+	}
+
+	unliked, count, err := s.photoRepo.RemoveLike(ctx, photoUUID, visitorHash)
+	if err == nil || errors.Is(err, repository.ErrNotImplemented) || errors.Is(err, repository.ErrRepositoryNotReady) {
+		return &response.PhotoUnlikeData{
+			UUID:      photoUUID,
+			Unliked:   unliked,
+			LikeCount: count,
+		}, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrPhotoNotFound
+	}
+	return nil, fmt.Errorf("unlike photo failed: %w", err)
 }
 
 func (s *behaviorService) DownloadPhoto(ctx context.Context, photoUUID string) (*response.PhotoDownloadData, error) {

@@ -110,6 +110,33 @@ func (h *PhotoHandler) LikePhoto(c *gin.Context) {
 	response.Success(c, data)
 }
 
+func (h *PhotoHandler) UnlikePhoto(c *gin.Context) {
+	photoUUID := c.Param("uuid")
+	if _, err := uuid.Parse(photoUUID); err != nil {
+		response.Error(c, http.StatusBadRequest, 40002, "invalid uuid")
+		return
+	}
+
+	visitorHash, _ := c.Get(middleware.VisitorHashKey)
+	hash, _ := visitorHash.(string)
+	if hash == "" {
+		response.Error(c, http.StatusBadRequest, 40003, "visitor hash missing")
+		return
+	}
+
+	data, err := h.behaviorService.UnlikePhoto(c.Request.Context(), photoUUID, hash)
+	if err != nil {
+		if errors.Is(err, service.ErrPhotoNotFound) {
+			response.Error(c, http.StatusNotFound, 40401, "photo not found")
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, 50003, "internal server error")
+		return
+	}
+
+	response.Success(c, data)
+}
+
 func (h *PhotoHandler) DownloadPhoto(c *gin.Context) {
 	photoUUID := c.Param("uuid")
 	if _, err := uuid.Parse(photoUUID); err != nil {

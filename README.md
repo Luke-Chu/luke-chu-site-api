@@ -36,20 +36,20 @@ Default listen address: `:8080`.
 - `GET /api/v1/photos/:uuid` (implemented with full detail + tags)
 - `POST /api/v1/photos/:uuid/view` (implemented with count increment)
 - `POST /api/v1/photos/:uuid/like` (implemented with dedup like)
+- `POST /api/v1/photos/:uuid/unlike` (implemented with count rollback)
 - `POST /api/v1/photos/:uuid/download` (implemented with count increment + url)
 - `GET /api/v1/tags`
 - `GET /api/v1/filters`
 
 ## New In This Step
 
-- Completed all behavior endpoints:
-  - `POST /api/v1/photos/:uuid/view`
-  - `POST /api/v1/photos/:uuid/like`
-  - `POST /api/v1/photos/:uuid/download`
-- Download API behavior:
+- Added `POST /api/v1/photos/:uuid/unlike`.
+- Unlike API behavior:
   - UUID validation
-  - `download_count = download_count + 1` on published photo
-  - return latest `downloadCount` and `downloadUrl` (`original_url`)
+  - visitor hash from middleware context
+  - transactional delete from `photo_likes`
+  - if deleted: `like_count = GREATEST(like_count - 1, 0)`
+  - if no like record: keep current count
 
 ## Build
 

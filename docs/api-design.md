@@ -33,6 +33,7 @@ Error:
 - `GET /api/v1/photos/:uuid`
 - `POST /api/v1/photos/:uuid/view`
 - `POST /api/v1/photos/:uuid/like`
+- `POST /api/v1/photos/:uuid/unlike`
 - `POST /api/v1/photos/:uuid/download`
 - `GET /api/v1/tags`
 - `GET /api/v1/filters`
@@ -114,6 +115,35 @@ Increase download count and return original download URL.
 ### Error Semantics
 
 - `400`: invalid UUID
+- `404`: photo not found
+- `500`: database/internal error
+
+## POST /api/v1/photos/:uuid/unlike
+
+### Purpose
+
+Cancel a previous like by the same visitor and rollback `like_count`.
+
+### Path Param
+
+- `uuid`: photo UUID
+
+### Behavior
+
+- Validate UUID format.
+- Read `visitor_hash` from middleware context.
+- Transaction flow:
+  - locate published photo by UUID
+  - `DELETE FROM photo_likes WHERE photo_id = ? AND visitor_hash = ?`
+  - if deleted: decrement `like_count` (floor at 0)
+  - if no record deleted: keep count unchanged
+- Return:
+  - `unliked = true` if rollback happened
+  - latest `likeCount`
+
+### Error Semantics
+
+- `400`: invalid UUID / missing visitor hash
 - `404`: photo not found
 - `500`: database/internal error
 

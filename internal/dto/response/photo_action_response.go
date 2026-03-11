@@ -11,6 +11,12 @@ type PhotoLikeData struct {
 	LikeCount int64  `json:"likeCount"`
 }
 
+type PhotoUnlikeData struct {
+	UUID      string `json:"uuid"`
+	Unliked   bool   `json:"unliked"`
+	LikeCount int64  `json:"likeCount"`
+}
+
 type PhotoDownloadData struct {
 	UUID          string `json:"uuid"`
 	DownloadCount int64  `json:"downloadCount"`

@@ -30,6 +30,7 @@ func NewRouter(
 		v1.GET("/photos/:uuid", photoHandler.GetPhotoDetail)
 		v1.POST("/photos/:uuid/view", photoHandler.ViewPhoto)
 		v1.POST("/photos/:uuid/like", photoHandler.LikePhoto)
+		v1.POST("/photos/:uuid/unlike", photoHandler.UnlikePhoto)
 		v1.POST("/photos/:uuid/download", photoHandler.DownloadPhoto)
 
 		v1.GET("/tags", tagHandler.ListTags)

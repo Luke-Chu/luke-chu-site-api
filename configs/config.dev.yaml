@@ -1,0 +1,23 @@
+app:
+  name: luke-chu-site-api
+  env: dev
+  port: 8080
+
+server:
+  read_timeout: 10
+  write_timeout: 15
+
+postgres:
+  host: 127.0.0.1
+  port: 5432
+  user: admin
+  password: "1234"
+  dbname: postgres
+  sslmode: disable
+  max_open_conns: 30
+  max_idle_conns: 15
+  conn_max_lifetime_minutes: 30
+
+log:
+  level: info
+

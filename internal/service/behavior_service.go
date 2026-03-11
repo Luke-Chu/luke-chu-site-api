@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 
+	"luke-chu-site-api/internal/dto/response"
 	"luke-chu-site-api/internal/repository"
 )
 
 type BehaviorService interface {
-	ViewPhoto(ctx context.Context, photoUUID string) error
+	ViewPhoto(ctx context.Context, photoUUID string) (*response.PhotoViewData, error)
 	LikePhoto(ctx context.Context, photoUUID, visitorHash string) error
 	DownloadPhoto(ctx context.Context, photoUUID string) error
 }
@@ -23,15 +24,15 @@ func NewBehaviorService(photoRepo repository.PhotoRepository) BehaviorService {
 	return &behaviorService{photoRepo: photoRepo}
 }
 
-func (s *behaviorService) ViewPhoto(ctx context.Context, photoUUID string) error {
-	err := s.photoRepo.IncrementViewCount(ctx, photoUUID)
+func (s *behaviorService) ViewPhoto(ctx context.Context, photoUUID string) (*response.PhotoViewData, error) {
+	count, err := s.photoRepo.IncrementViewCount(ctx, photoUUID)
 	if err == nil || errors.Is(err, repository.ErrNotImplemented) || errors.Is(err, repository.ErrRepositoryNotReady) {
-		return nil
+		return &response.PhotoViewData{UUID: photoUUID, ViewCount: count}, nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrPhotoNotFound
+		return nil, ErrPhotoNotFound
 	}
-	return fmt.Errorf("view photo failed: %w", err)
+	return nil, fmt.Errorf("view photo failed: %w", err)
 }
 
 func (s *behaviorService) LikePhoto(ctx context.Context, photoUUID, visitorHash string) error {

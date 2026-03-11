@@ -31,7 +31,7 @@ Error:
 - `GET /api/v1/health`
 - `GET /api/v1/photos`
 - `GET /api/v1/photos/:uuid`
-- `POST /api/v1/photos/:uuid/view` (to be finalized)
+- `POST /api/v1/photos/:uuid/view`
 - `POST /api/v1/photos/:uuid/like` (to be finalized)
 - `POST /api/v1/photos/:uuid/download` (to be finalized)
 - `GET /api/v1/tags`
@@ -74,3 +74,26 @@ Return published photo detail for the detail page.
 - `createdAt`, `updatedAt`
 - `tags` (`id`, `name`, `tagType`)
 
+## POST /api/v1/photos/:uuid/view
+
+### Purpose
+
+Increase view count and return latest `viewCount`.
+
+### Path Param
+
+- `uuid`: photo UUID
+
+### Behavior
+
+- Validate UUID format.
+- Update published photo only:
+  - `view_count = view_count + 1`
+  - `updated_at = NOW()`
+- Return `uuid` and latest `viewCount`.
+
+### Error Semantics
+
+- `400`: invalid UUID
+- `404`: photo not found
+- `500`: database/internal error

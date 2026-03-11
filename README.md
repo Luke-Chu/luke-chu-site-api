@@ -34,7 +34,7 @@ Default listen address: `:8080`.
 - `GET /api/v1/health`
 - `GET /api/v1/photos`
 - `GET /api/v1/photos/:uuid` (implemented with full detail + tags)
-- `POST /api/v1/photos/:uuid/view` (skeleton, to be finalized)
+- `POST /api/v1/photos/:uuid/view` (implemented with count increment)
 - `POST /api/v1/photos/:uuid/like` (skeleton, to be finalized)
 - `POST /api/v1/photos/:uuid/download` (skeleton, to be finalized)
 - `GET /api/v1/tags`
@@ -42,11 +42,11 @@ Default listen address: `:8080`.
 
 ## New In This Step
 
-- Completed `GET /api/v1/photos/:uuid`.
-- Supports:
+- Completed `GET /api/v1/photos/:uuid` and `POST /api/v1/photos/:uuid/view`.
+- View API behavior:
   - UUID validation
-  - `is_published = true` detail query
-  - joined photo tags query
+  - `is_published = true` update with `view_count = view_count + 1`
+  - returns latest `viewCount`
   - `400 invalid uuid`, `404 photo not found`, `500 internal server error`
 
 ## Build
@@ -54,4 +54,3 @@ Default listen address: `:8080`.
 ```bash
 ./scripts/build.sh
 ```
-

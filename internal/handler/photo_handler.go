@@ -66,16 +66,22 @@ func (h *PhotoHandler) GetPhotoDetail(c *gin.Context) {
 
 func (h *PhotoHandler) ViewPhoto(c *gin.Context) {
 	photoUUID := c.Param("uuid")
-	if err := h.behaviorService.ViewPhoto(c.Request.Context(), photoUUID); err != nil {
+	if _, err := uuid.Parse(photoUUID); err != nil {
+		response.Error(c, http.StatusBadRequest, 40002, "invalid uuid")
+		return
+	}
+
+	data, err := h.behaviorService.ViewPhoto(c.Request.Context(), photoUUID)
+	if err != nil {
 		if errors.Is(err, service.ErrPhotoNotFound) {
 			response.Error(c, http.StatusNotFound, 40401, "photo not found")
 			return
 		}
-		response.Error(c, http.StatusInternalServerError, 50002, err.Error())
+		response.Error(c, http.StatusInternalServerError, 50002, "internal server error")
 		return
 	}
 
-	response.Success(c, gin.H{"uuid": photoUUID, "action": "view"})
+	response.Success(c, data)
 }
 
 func (h *PhotoHandler) LikePhoto(c *gin.Context) {

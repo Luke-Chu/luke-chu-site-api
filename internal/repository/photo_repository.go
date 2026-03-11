@@ -37,7 +37,7 @@ type PhotoRepository interface {
 	GetPhotoDetailByUUID(ctx context.Context, uuid string) (*model.Photo, error)
 	GetPhotoTagsByPhotoID(ctx context.Context, photoID int64) ([]response.TagItem, error)
 	GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error)
-	IncrementViewCount(ctx context.Context, uuid string) error
+	IncrementViewCount(ctx context.Context, uuid string) (int64, error)
 	IncrementDownloadCount(ctx context.Context, uuid string) error
 	AddLike(ctx context.Context, uuid, visitorHash string) error
 }
@@ -228,8 +228,25 @@ ORDER BY t.tag_type ASC, t.id ASC
 	return result, nil
 }
 
-func (r *SQLXPhotoRepository) IncrementViewCount(ctx context.Context, uuid string) error {
-	return r.incrementCounter(ctx, uuid, "view_count")
+func (r *SQLXPhotoRepository) IncrementViewCount(ctx context.Context, uuid string) (int64, error) {
+	if r.db == nil {
+		return 0, ErrRepositoryNotReady
+	}
+
+	var count int64
+	err := r.db.GetContext(ctx, &count, `
+UPDATE photos
+SET view_count = view_count + 1,
+	updated_at = NOW()
+WHERE uuid = $1
+  AND is_published = TRUE
+RETURNING view_count
+`, uuid)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (r *SQLXPhotoRepository) IncrementDownloadCount(ctx context.Context, uuid string) error {

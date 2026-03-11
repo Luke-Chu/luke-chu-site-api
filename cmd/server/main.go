@@ -57,7 +57,13 @@ func main() {
 	tagHandler := handler.NewTagHandler(tagService)
 	filterHandler := handler.NewFilterHandler(filterService)
 
-	router := app.NewRouter(logger, healthHandler, photoHandler, tagHandler, filterHandler)
+	behaviorGuardCfg := middleware.BehaviorGuardConfig{
+		Enabled:                    cfg.Security.Behavior.Enabled,
+		WindowSeconds:              cfg.Security.Behavior.WindowSeconds,
+		IPLimitPerWindow:           cfg.Security.Behavior.IPLimitPerWindow,
+		SuspiciousIPLimitPerWindow: cfg.Security.Behavior.SuspiciousIPLimitPerWindow,
+	}
+	router := app.NewRouter(logger, behaviorGuardCfg, healthHandler, photoHandler, tagHandler, filterHandler)
 	server := app.NewServer(cfg, router)
 
 	logger.Info("server starting",

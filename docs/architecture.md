@@ -16,6 +16,7 @@
 - `logger`：请求方法、路径、状态码、耗时、IP
 - `recovery`：panic 保护并返回统一错误 JSON
 - `visitor`：基于 IP + UA + Accept-Language 生成 `visitor_hash`
+- `behavior_guard`：行为接口风控（IP 限流、可疑 UA 限流、风险日志）
 
 ## 下载签名链路
 
@@ -26,6 +27,28 @@
 3. 返回临时签名 `downloadUrl` 给前端
 
 说明：AK/SK 不写入代码，SDK 从环境变量读取 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`。
+
+## 行为风控策略（第一版）
+
+适用接口：
+
+- `POST /api/v1/photos/:uuid/view`
+- `POST /api/v1/photos/:uuid/like`
+- `POST /api/v1/photos/:uuid/unlike`
+- `POST /api/v1/photos/:uuid/download`
+
+策略组合：
+
+1. Repository 时间窗口防刷（view/download）
+2. Middleware IP 固定窗口限流
+3. Middleware 可疑 User-Agent 独立限流
+4. 命中可疑规则或限流时输出 `warn` 风控日志（含 IP、UA、path、visitor_hash）
+
+默认阈值（可配置）：
+
+- `window_seconds=60`
+- `ip_limit_per_window=120`
+- `suspicious_ip_limit_per_window=20`
 
 ## 查询性能策略（第一版）
 

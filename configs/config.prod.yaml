@@ -25,5 +25,12 @@ oss:
   region: cn-hongkong
   presign_expire_seconds: 300
 
+security:
+  behavior:
+    enabled: true
+    window_seconds: 60
+    ip_limit_per_window: 180
+    suspicious_ip_limit_per_window: 30
+
 log:
   level: info

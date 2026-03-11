@@ -18,6 +18,7 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Postgres PostgresConfig `mapstructure:"postgres"`
 	OSS      OSSConfig      `mapstructure:"oss"`
+	Security SecurityConfig `mapstructure:"security"`
 	Log      LogConfig      `mapstructure:"log"`
 }
 
@@ -46,6 +47,17 @@ type PostgresConfig struct {
 
 type LogConfig struct {
 	Level string `mapstructure:"level"`
+}
+
+type SecurityConfig struct {
+	Behavior BehaviorSecurityConfig `mapstructure:"behavior"`
+}
+
+type BehaviorSecurityConfig struct {
+	Enabled                    bool  `mapstructure:"enabled"`
+	WindowSeconds              int64 `mapstructure:"window_seconds"`
+	IPLimitPerWindow           int   `mapstructure:"ip_limit_per_window"`
+	SuspiciousIPLimitPerWindow int   `mapstructure:"suspicious_ip_limit_per_window"`
 }
 
 type OSSConfig struct {
@@ -101,5 +113,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("postgres.max_idle_conns", 10)
 	v.SetDefault("postgres.conn_max_lifetime_minutes", 30)
 	v.SetDefault("oss.presign_expire_seconds", 300)
+	v.SetDefault("security.behavior.enabled", true)
+	v.SetDefault("security.behavior.window_seconds", 60)
+	v.SetDefault("security.behavior.ip_limit_per_window", 120)
+	v.SetDefault("security.behavior.suspicious_ip_limit_per_window", 20)
 	v.SetDefault("log.level", "info")
 }

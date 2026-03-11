@@ -10,6 +10,7 @@ import (
 
 func NewRouter(
 	logger *zap.Logger,
+	behaviorGuardCfg middleware.BehaviorGuardConfig,
 	healthHandler *handler.HealthHandler,
 	photoHandler *handler.PhotoHandler,
 	tagHandler *handler.TagHandler,
@@ -28,13 +29,18 @@ func NewRouter(
 
 		v1.GET("/photos", photoHandler.ListPhotos)
 		v1.GET("/photos/:uuid", photoHandler.GetPhotoDetail)
-		v1.POST("/photos/:uuid/view", photoHandler.ViewPhoto)
-		v1.POST("/photos/:uuid/like", photoHandler.LikePhoto)
-		v1.POST("/photos/:uuid/unlike", photoHandler.UnlikePhoto)
-		v1.POST("/photos/:uuid/download", photoHandler.DownloadPhoto)
 
 		v1.GET("/tags", tagHandler.ListTags)
 		v1.GET("/filters", filterHandler.GetFilters)
+	}
+
+	behaviorGroup := v1.Group("/photos/:uuid")
+	behaviorGroup.Use(middleware.BehaviorGuard(logger, behaviorGuardCfg))
+	{
+		behaviorGroup.POST("/view", photoHandler.ViewPhoto)
+		behaviorGroup.POST("/like", photoHandler.LikePhoto)
+		behaviorGroup.POST("/unlike", photoHandler.UnlikePhoto)
+		behaviorGroup.POST("/download", photoHandler.DownloadPhoto)
 	}
 
 	return engine

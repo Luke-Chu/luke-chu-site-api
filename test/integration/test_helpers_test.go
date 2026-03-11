@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"luke-chu-site-api/internal/app"
+	"luke-chu-site-api/internal/app/middleware"
 	"luke-chu-site-api/internal/dto/request"
 	"luke-chu-site-api/internal/dto/response"
 	"luke-chu-site-api/internal/handler"
@@ -95,10 +96,11 @@ func (s *stubFilterService) GetFilters(ctx context.Context) (*response.FilterDat
 }
 
 type testServices struct {
-	photo    service.PhotoService
-	behavior service.BehaviorService
-	tag      service.TagService
-	filter   service.FilterService
+	photo         service.PhotoService
+	behavior      service.BehaviorService
+	tag           service.TagService
+	filter        service.FilterService
+	behaviorGuard middleware.BehaviorGuardConfig
 }
 
 func newTestRouter(s testServices) http.Handler {
@@ -121,8 +123,11 @@ func newTestRouter(s testServices) http.Handler {
 	photoHandler := handler.NewPhotoHandler(s.photo, s.behavior, validator.New())
 	tagHandler := handler.NewTagHandler(s.tag)
 	filterHandler := handler.NewFilterHandler(s.filter)
+	if s.behaviorGuard.WindowSeconds == 0 {
+		s.behaviorGuard = middleware.DefaultBehaviorGuardConfig()
+	}
 
-	return app.NewRouter(zap.NewNop(), healthHandler, photoHandler, tagHandler, filterHandler)
+	return app.NewRouter(zap.NewNop(), s.behaviorGuard, healthHandler, photoHandler, tagHandler, filterHandler)
 }
 
 func newRequestRecorder(router http.Handler, method, path string) *httptest.ResponseRecorder {

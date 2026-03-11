@@ -130,7 +130,9 @@ curl -X GET "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-4466554
 ## 5. 浏览行为
 
 - 方法与路径：`POST /api/v1/photos/:uuid/view`
-- 说明：10 分钟防刷窗口；窗口内重复请求不重复计数，返回 `counted=false`
+- 说明：
+  - 10 分钟防刷窗口；窗口内重复请求不重复计数，返回 `counted=false`
+  - 受行为风控中间件保护（IP 限流 + 可疑 UA 限流）
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/view"
@@ -141,7 +143,9 @@ curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655
 ## 6. 点赞
 
 - 方法与路径：`POST /api/v1/photos/:uuid/like`
-- 说明：visitor hash 来自中间件；同一 visitor 不重复点赞
+- 说明：
+  - visitor hash 来自中间件；同一 visitor 不重复点赞
+  - 受行为风控中间件保护（IP 限流 + 可疑 UA 限流）
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/like"
@@ -152,7 +156,9 @@ curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655
 ## 7. 取消点赞
 
 - 方法与路径：`POST /api/v1/photos/:uuid/unlike`
-- 说明：删除当前 visitor 点赞记录，计数回退并保证不小于 0
+- 说明：
+  - 删除当前 visitor 点赞记录，计数回退并保证不小于 0
+  - 受行为风控中间件保护（IP 限流 + 可疑 UA 限流）
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/unlike"
@@ -166,6 +172,7 @@ curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655
 - 说明：
   - 30 分钟防刷窗口；窗口内重复请求不重复计数，返回 `counted=false`
   - 返回 `downloadUrl` 为 OSS 预签名临时 URL（非裸公网 URL）
+  - 受行为风控中间件保护（IP 限流 + 可疑 UA 限流）
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/download"
@@ -175,6 +182,7 @@ curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655
 
 - `400`：UUID 非法
 - `404`：图片不存在
+- `429`：触发行为风控策略（`42901` / `42902`）
 - `500`：服务异常（含 OSS 预签名失败）
 
 ---

@@ -89,6 +89,28 @@ OSS_PRESIGN_EXPIRE_SECONDS=300
 - `50000`：`internal server error`
 - `50001~50006`：各业务模块内部错误（列表/详情/点赞/下载/标签/筛选）
 
+## 行为防刷策略（view/like/unlike/download）
+
+已启用两层防刷：
+
+1. 数据库时间窗口去重  
+   `view=10分钟`，`download=30分钟`
+2. 行为风控中间件  
+   按 IP 固定窗口限流 + 可疑 User-Agent 单独限流 + 风险日志
+
+默认配置（可在 `configs/*.yaml` 覆盖）：
+
+```yaml
+security:
+  behavior:
+    enabled: true
+    window_seconds: 60
+    ip_limit_per_window: 120
+    suspicious_ip_limit_per_window: 20
+```
+
+可疑 UA 命中后会记录 `warn` 风控日志；若同窗口超过阈值会返回 `42902`。
+
 ## 查询性能基线（图库列表）
 
 已新增索引迁移脚本：

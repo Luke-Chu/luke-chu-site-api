@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 
+	"luke-chu-site-api/internal/constant"
 	"luke-chu-site-api/internal/dto/request"
+	"luke-chu-site-api/internal/dto/response"
 	"luke-chu-site-api/internal/model"
 	"luke-chu-site-api/internal/pkg/pager"
 	sortutil "luke-chu-site-api/internal/pkg/sort"
@@ -19,9 +22,18 @@ var (
 	ErrNotImplemented     = errors.New("repository sql not implemented for current schema")
 )
 
+var photoSortColumns = map[string]string{
+	constant.SortShotTime:  "p.shot_time",
+	constant.SortLikeCount: "p.like_count",
+	constant.SortViewCount: "p.view_count",
+	constant.SortDownload:  "p.download_count",
+	constant.SortCreatedAt: "p.created_at",
+}
+
 type PhotoRepository interface {
-	ListPhotos(ctx context.Context, req request.PhotoListRequest) ([]model.Photo, error)
-	CountPhotos(ctx context.Context, req request.PhotoListRequest) (int64, error)
+	ListPhotos(ctx context.Context, req *request.PhotoListRequest) ([]*model.Photo, error)
+	CountPhotos(ctx context.Context, req *request.PhotoListRequest) (int64, error)
+	ListPhotoTagsByPhotoIDs(ctx context.Context, photoIDs []int64) (map[int64][]response.PhotoTagItem, error)
 	GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error)
 	IncrementViewCount(ctx context.Context, uuid string) error
 	IncrementDownloadCount(ctx context.Context, uuid string) error
@@ -36,59 +48,113 @@ func NewPhotoRepository(db *sqlx.DB) PhotoRepository {
 	return &SQLXPhotoRepository{db: db}
 }
 
-func (r *SQLXPhotoRepository) ListPhotos(ctx context.Context, req request.PhotoListRequest) ([]model.Photo, error) {
+func (r *SQLXPhotoRepository) ListPhotos(ctx context.Context, req *request.PhotoListRequest) ([]*model.Photo, error) {
 	if r.db == nil {
 		return nil, ErrRepositoryNotReady
 	}
-
-	ok, err := r.tableExists(ctx, "photos")
-	if err != nil {
-		return nil, err
+	if req == nil {
+		req = &request.PhotoListRequest{}
 	}
-	if !ok {
-		return nil, ErrNotImplemented
-	}
+	req.Normalize()
 
-	sortField, order := sortutil.Normalize(req.Sort, req.Order)
+	whereSQL, args, next := r.buildPhotoListWhere(req, 1)
+	sortColumn := normalizePhotoSortColumn(req.Sort)
+	sortOrder := strings.ToUpper(sortutil.NormalizeSortOrder(req.Order))
+
 	query := fmt.Sprintf(`
 SELECT
-	id, uuid, filename, title_cn, title_en, description, category, shot_time, width, height, orientation, resolution,
-	camera_model, lens_model, aperture, shutter_speed, iso, focal_length, focal_length_35mm, metering_mode,
-	exposure_program, white_balance, flash, thumb_url, display_url, original_url, like_count, download_count,
-	view_count, is_published, created_at, updated_at
-FROM photos
-WHERE is_published = TRUE
-ORDER BY %s %s
-LIMIT $1 OFFSET $2
-`, sortField, order)
+	p.id, p.uuid, p.filename, p.title_cn, p.title_en, p.thumb_url, p.display_url,
+	p.width, p.height, p.orientation, p.shot_time, p.aperture, p.shutter_speed,
+	p.iso, p.like_count, p.view_count, p.download_count
+FROM photos p
+%s
+ORDER BY %s %s, p.id DESC
+LIMIT $%d OFFSET $%d
+`, whereSQL, sortColumn, sortOrder, next, next+1)
 
-	items := make([]model.Photo, 0)
-	err = r.db.SelectContext(ctx, &items, query, req.PageSize, pager.Offset(req.Page, req.PageSize))
-	if err != nil {
+	args = append(args, req.PageSize, pager.Offset(req.Page, req.PageSize))
+
+	rows := make([]model.Photo, 0)
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
 		return nil, fmt.Errorf("list photos failed: %w", err)
 	}
 
-	return items, nil
+	result := make([]*model.Photo, len(rows))
+	for i := range rows {
+		result[i] = &rows[i]
+	}
+	return result, nil
 }
 
-func (r *SQLXPhotoRepository) CountPhotos(ctx context.Context, _ request.PhotoListRequest) (int64, error) {
+func (r *SQLXPhotoRepository) CountPhotos(ctx context.Context, req *request.PhotoListRequest) (int64, error) {
 	if r.db == nil {
 		return 0, ErrRepositoryNotReady
 	}
+	if req == nil {
+		req = &request.PhotoListRequest{}
+	}
+	req.Normalize()
 
-	ok, err := r.tableExists(ctx, "photos")
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return 0, ErrNotImplemented
-	}
+	whereSQL, args, _ := r.buildPhotoListWhere(req, 1)
+	query := fmt.Sprintf(`SELECT COUNT(1) FROM photos p %s`, whereSQL)
 
 	var total int64
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(1) FROM photos WHERE is_published = TRUE`); err != nil {
+	if err := r.db.GetContext(ctx, &total, query, args...); err != nil {
 		return 0, fmt.Errorf("count photos failed: %w", err)
 	}
+
 	return total, nil
+}
+
+func (r *SQLXPhotoRepository) ListPhotoTagsByPhotoIDs(ctx context.Context, photoIDs []int64) (map[int64][]response.PhotoTagItem, error) {
+	result := make(map[int64][]response.PhotoTagItem, len(photoIDs))
+	for _, photoID := range photoIDs {
+		result[photoID] = []response.PhotoTagItem{}
+	}
+	if len(photoIDs) == 0 {
+		return result, nil
+	}
+
+	placeholders := make([]string, 0, len(photoIDs))
+	args := make([]any, 0, len(photoIDs))
+	for i, photoID := range photoIDs {
+		placeholders = append(placeholders, fmt.Sprintf("$%d", i+1))
+		args = append(args, photoID)
+	}
+
+	query := fmt.Sprintf(`
+SELECT
+	pt.photo_id,
+	t.id,
+	t.name,
+	t.tag_type
+FROM photo_tags pt
+JOIN tags t ON t.id = pt.tag_id
+WHERE pt.photo_id IN (%s)
+ORDER BY pt.photo_id ASC, t.id ASC
+`, strings.Join(placeholders, ","))
+
+	type tagRow struct {
+		PhotoID int64  `db:"photo_id"`
+		TagID   int64  `db:"id"`
+		Name    string `db:"name"`
+		TagType string `db:"tag_type"`
+	}
+
+	rows := make([]tagRow, 0)
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, fmt.Errorf("list photo tags failed: %w", err)
+	}
+
+	for _, row := range rows {
+		result[row.PhotoID] = append(result[row.PhotoID], response.PhotoTagItem{
+			ID:      row.TagID,
+			Name:    row.Name,
+			TagType: row.TagType,
+		})
+	}
+
+	return result, nil
 }
 
 func (r *SQLXPhotoRepository) GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error) {
@@ -218,6 +284,112 @@ func (r *SQLXPhotoRepository) incrementCounter(ctx context.Context, uuid, field 
 	}
 
 	return nil
+}
+
+func (r *SQLXPhotoRepository) buildPhotoListWhere(req *request.PhotoListRequest, startIndex int) (string, []any, int) {
+	clauses := []string{"p.is_published = TRUE"}
+	args := make([]any, 0, 16)
+	idx := startIndex
+
+	for _, keyword := range req.KeywordList() {
+		keywordLike := "%" + keyword + "%"
+		clauses = append(clauses, fmt.Sprintf(`(
+COALESCE(p.title_cn, '') ILIKE $%d
+OR COALESCE(p.title_en, '') ILIKE $%d
+OR p.filename ILIKE $%d
+OR EXISTS (
+	SELECT 1
+	FROM photo_tags pt
+	JOIN tags t ON t.id = pt.tag_id
+	WHERE pt.photo_id = p.id
+	  AND t.name ILIKE $%d
+)
+)`, idx, idx, idx, idx))
+		args = append(args, keywordLike)
+		idx++
+	}
+
+	tags := req.TagList()
+	if len(tags) > 0 {
+		tagNames := make([]string, 0, len(tags))
+		seen := make(map[string]struct{}, len(tags))
+		for _, tag := range tags {
+			lower := strings.ToLower(strings.TrimSpace(tag))
+			if lower == "" {
+				continue
+			}
+			if _, ok := seen[lower]; ok {
+				continue
+			}
+			seen[lower] = struct{}{}
+			tagNames = append(tagNames, lower)
+		}
+
+		if len(tagNames) > 0 {
+			placeholders := make([]string, 0, len(tagNames))
+			for _, tagName := range tagNames {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", idx))
+				args = append(args, tagName)
+				idx++
+			}
+
+			switch req.TagMode {
+			case "all":
+				clauses = append(clauses, fmt.Sprintf(`
+p.id IN (
+	SELECT pt.photo_id
+	FROM photo_tags pt
+	JOIN tags t ON t.id = pt.tag_id
+	WHERE LOWER(t.name) IN (%s)
+	GROUP BY pt.photo_id
+	HAVING COUNT(DISTINCT LOWER(t.name)) = $%d
+)`, strings.Join(placeholders, ","), idx))
+				args = append(args, len(tagNames))
+				idx++
+			default:
+				clauses = append(clauses, fmt.Sprintf(`
+EXISTS (
+	SELECT 1
+	FROM photo_tags pt
+	JOIN tags t ON t.id = pt.tag_id
+	WHERE pt.photo_id = p.id
+	  AND LOWER(t.name) IN (%s)
+)`, strings.Join(placeholders, ",")))
+			}
+		}
+	}
+
+	if req.Orientation != "" {
+		clauses = append(clauses, fmt.Sprintf("p.orientation = $%d", idx))
+		args = append(args, req.Orientation)
+		idx++
+	}
+	if req.Year > 0 {
+		clauses = append(clauses, fmt.Sprintf("p.year = $%d", idx))
+		args = append(args, req.Year)
+		idx++
+	}
+	if req.Month > 0 {
+		clauses = append(clauses, fmt.Sprintf("p.month = $%d", idx))
+		args = append(args, req.Month)
+		idx++
+	}
+	if req.Category != "" {
+		clauses = append(clauses, fmt.Sprintf("p.category = $%d", idx))
+		args = append(args, req.Category)
+		idx++
+	}
+
+	return "WHERE " + strings.Join(clauses, " AND "), args, idx
+}
+
+func normalizePhotoSortColumn(sortField string) string {
+	field := sortutil.NormalizeSortField(sortField)
+	col, ok := photoSortColumns[field]
+	if !ok {
+		return photoSortColumns[constant.DefaultSort]
+	}
+	return col
 }
 
 func (r *SQLXPhotoRepository) tableExists(ctx context.Context, table string) (bool, error) {

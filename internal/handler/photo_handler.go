@@ -34,13 +34,7 @@ func (h *PhotoHandler) ListPhotos(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 40000, "invalid query params")
 		return
 	}
-	req.Normalize()
-	if err := h.validate.Struct(req); err != nil {
-		response.Error(c, http.StatusBadRequest, 40001, err.Error())
-		return
-	}
-
-	data, err := h.photoService.ListPhotos(c.Request.Context(), req)
+	data, err := h.photoService.ListPhotos(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 50001, err.Error())
 		return

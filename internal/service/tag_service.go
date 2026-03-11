@@ -28,9 +28,9 @@ func (s *tagService) ListTags(ctx context.Context) (*response.TagListData, error
 		if errors.Is(err, repository.ErrNotImplemented) || errors.Is(err, repository.ErrRepositoryNotReady) {
 			return &response.TagListData{
 				Items: []response.TagItem{
-					{Name: "subject", TagType: constant.TagTypeSubject},
-					{Name: "element", TagType: constant.TagTypeElement},
-					{Name: "mood", TagType: constant.TagTypeMood},
+					{ID: 0, Name: "subject", TagType: constant.TagTypeSubject},
+					{ID: 0, Name: "element", TagType: constant.TagTypeElement},
+					{ID: 0, Name: "mood", TagType: constant.TagTypeMood},
 				},
 			}, nil
 		}
@@ -40,6 +40,7 @@ func (s *tagService) ListTags(ctx context.Context) (*response.TagListData, error
 	items := make([]response.TagItem, 0, len(tags))
 	for _, tag := range tags {
 		items = append(items, response.TagItem{
+			ID:      tag.ID,
 			Name:    tag.Name,
 			TagType: tag.TagType,
 		})

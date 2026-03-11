@@ -15,18 +15,23 @@ var allowedFields = map[string]struct{}{
 }
 
 func Normalize(sortField, order string) (string, string) {
-	sortField = strings.ToLower(strings.TrimSpace(sortField))
-	order = strings.ToLower(strings.TrimSpace(order))
+	return NormalizeSortField(sortField), NormalizeSortOrder(order)
+}
 
+func NormalizeSortField(sortField string) string {
+	sortField = strings.ToLower(strings.TrimSpace(sortField))
 	if _, ok := allowedFields[sortField]; !ok {
 		sortField = constant.DefaultSort
 	}
+	return sortField
+}
 
+func NormalizeSortOrder(order string) string {
+	order = strings.ToLower(strings.TrimSpace(order))
 	if order != "asc" && order != "desc" {
 		order = constant.DefaultSortOrder
 	}
-
-	return sortField, order
+	return order
 }
 
 func IsAllowedField(sortField string) bool {

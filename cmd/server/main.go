@@ -40,16 +40,19 @@ func main() {
 
 	photoRepo := repository.NewPhotoRepository(pg)
 	tagRepo := repository.NewTagRepository(pg)
+	filterRepo := repository.NewFilterRepository(pg)
 
 	photoService := service.NewPhotoService(photoRepo)
 	behaviorService := service.NewBehaviorService(photoRepo)
 	tagService := service.NewTagService(tagRepo)
+	filterService := service.NewFilterService(filterRepo)
 
 	healthHandler := handler.NewHealthHandler(cfg.App.Name)
 	photoHandler := handler.NewPhotoHandler(photoService, behaviorService, validate)
 	tagHandler := handler.NewTagHandler(tagService)
+	filterHandler := handler.NewFilterHandler(filterService)
 
-	router := app.NewRouter(logger, healthHandler, photoHandler, tagHandler)
+	router := app.NewRouter(logger, healthHandler, photoHandler, tagHandler, filterHandler)
 	server := app.NewServer(cfg, router)
 
 	logger.Info("server starting",

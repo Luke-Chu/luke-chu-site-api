@@ -13,6 +13,7 @@ func NewRouter(
 	healthHandler *handler.HealthHandler,
 	photoHandler *handler.PhotoHandler,
 	tagHandler *handler.TagHandler,
+	filterHandler *handler.FilterHandler,
 ) *gin.Engine {
 	engine := gin.New()
 
@@ -32,6 +33,7 @@ func NewRouter(
 		v1.POST("/photos/:uuid/download", photoHandler.DownloadPhoto)
 
 		v1.GET("/tags", tagHandler.ListTags)
+		v1.GET("/filters", filterHandler.GetFilters)
 	}
 
 	return engine

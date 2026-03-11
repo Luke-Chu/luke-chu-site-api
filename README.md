@@ -1,6 +1,6 @@
 # luke-chu-site-api
 
-`luke-chu.com` 个人网站后端服务。当前阶段先支持摄影图库模块，后续逐步扩展其他业务模块。
+`luke-chu.com` 个人网站后端服务。当前阶段重点支持摄影图库模块，后续持续扩展。
 
 ## 技术栈
 
@@ -8,53 +8,35 @@
 - Gin
 - sqlx
 - PostgreSQL
-- Viper (yaml 配置)
-- Zap (日志)
+- Viper (YAML 配置)
+- Zap
 - go-playground/validator
 - google/uuid
-
-## 目录结构
-
-```
-luke-chu-site-api/
-├── cmd/server/main.go
-├── configs/
-├── internal/
-│   ├── app/
-│   ├── config/
-│   ├── db/
-│   ├── model/
-│   ├── repository/
-│   ├── service/
-│   ├── handler/
-│   ├── dto/
-│   ├── pkg/
-│   └── constant/
-├── api/openapi/
-├── docs/
-├── scripts/
-└── test/
-```
 
 ## 本地运行
 
 1. 确认 PostgreSQL 可连接（默认读取 `configs/config.local.yaml`）。
-2. 执行：
+2. 启动服务：
 
 ```bash
 APP_ENV=local go run ./cmd/server
 ```
 
-启动默认监听 `:8080`。
+默认监听 `:8080`。
 
 ## 配置说明
 
-- 配置文件位置：`configs/config.{env}.yaml`
-- 通过环境变量 `APP_ENV` 选择配置文件：
-  - `local` -> `configs/config.local.yaml`
-  - `dev` -> `configs/config.dev.yaml`
-  - `prod` -> `configs/config.prod.yaml`
+- 配置文件：`configs/config.{env}.yaml`
+- 环境变量：`APP_ENV=local|dev|prod`
 - 未设置 `APP_ENV` 时默认 `local`
+
+本地默认数据库配置：
+
+- host: `127.0.0.1`
+- port: `5432`
+- user: `admin`
+- password: `1234`
+- dbname: `luke-chu-site`
 
 ## 当前接口
 
@@ -65,8 +47,39 @@ APP_ENV=local go run ./cmd/server
 - `POST /api/v1/photos/:uuid/like`
 - `POST /api/v1/photos/:uuid/download`
 - `GET /api/v1/tags`
+- `GET /api/v1/filters`
 
-> 第一版图库 SQL 仍在演进，部分接口会返回 mock/降级数据。
+## 图片列表查询参数
+
+`GET /api/v1/photos` 支持：
+
+- `q`
+- `page`
+- `pageSize`
+- `sort`
+- `order`
+- `tags`
+- `tagMode` (`any` / `all`)
+- `orientation`
+- `year`
+- `month`
+- `category`
+
+返回结构：
+
+- `data.list`
+- `data.pagination`
+- `data.query`
+
+## 筛选项接口
+
+`GET /api/v1/filters` 返回：
+
+- `years`
+- `categories`
+- `orientations`（含 `count`）
+- `tagTypes`
+- `tags`（按 `tag_type` 分组）
 
 ## 构建
 
@@ -74,12 +87,12 @@ APP_ENV=local go run ./cmd/server
 ./scripts/build.sh
 ```
 
-产物输出：`bin/luke-chu-site-api`
+构建产物：`bin/luke-chu-site-api`
 
-## 后续待办
+## 后续计划
 
-- 完整图库表结构与迁移脚本
-- 图片筛选/搜索 SQL 优化
-- OpenAPI/Swagger 文档生成
+- 完整迁移脚本与索引优化
+- 复杂搜索 SQL 和统计优化
+- OpenAPI / Swagger 文档生成
 - 集成测试完善
 

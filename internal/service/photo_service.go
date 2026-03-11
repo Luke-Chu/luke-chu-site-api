@@ -12,7 +12,6 @@ import (
 
 	"luke-chu-site-api/internal/dto/request"
 	"luke-chu-site-api/internal/dto/response"
-	"luke-chu-site-api/internal/model"
 	"luke-chu-site-api/internal/pkg/pager"
 	"luke-chu-site-api/internal/repository"
 )
@@ -20,7 +19,7 @@ import (
 var ErrPhotoNotFound = errors.New("photo not found")
 
 type PhotoService interface {
-	ListPhotos(ctx context.Context, req request.PhotoListRequest) (*response.PhotoListData, error)
+	ListPhotos(ctx context.Context, req *request.PhotoListRequest) (*response.PhotoListData, error)
 	GetPhotoDetail(ctx context.Context, photoUUID string) (*response.PhotoDetailData, error)
 }
 
@@ -32,57 +31,75 @@ func NewPhotoService(photoRepo repository.PhotoRepository) PhotoService {
 	return &photoService{photoRepo: photoRepo}
 }
 
-func (s *photoService) ListPhotos(ctx context.Context, req request.PhotoListRequest) (*response.PhotoListData, error) {
+func (s *photoService) ListPhotos(ctx context.Context, req *request.PhotoListRequest) (*response.PhotoListData, error) {
+	if req == nil {
+		req = &request.PhotoListRequest{}
+	}
 	req.Normalize()
 
-	// TODO: future query SQL will use parsed keywords.
-	_ = req.Keywords()
-	_ = req.TagList()
-
-	photos, listErr := s.photoRepo.ListPhotos(ctx, req)
-	if listErr != nil &&
-		!errors.Is(listErr, repository.ErrNotImplemented) &&
-		!errors.Is(listErr, repository.ErrRepositoryNotReady) {
-		return nil, fmt.Errorf("list photos failed: %w", listErr)
+	photos, err := s.photoRepo.ListPhotos(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("list photos failed: %w", err)
 	}
 
-	total, countErr := s.photoRepo.CountPhotos(ctx, req)
-	if countErr != nil &&
-		!errors.Is(countErr, repository.ErrNotImplemented) &&
-		!errors.Is(countErr, repository.ErrRepositoryNotReady) {
-		return nil, fmt.Errorf("count photos failed: %w", countErr)
+	total, err := s.photoRepo.CountPhotos(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("count photos failed: %w", err)
 	}
 
-	if errors.Is(listErr, repository.ErrNotImplemented) || errors.Is(listErr, repository.ErrRepositoryNotReady) {
-		photos = []model.Photo{}
-	}
-	if errors.Is(countErr, repository.ErrNotImplemented) || errors.Is(countErr, repository.ErrRepositoryNotReady) {
-		total = 0
-	}
-
-	items := make([]response.PhotoListItem, 0, len(photos))
+	photoIDs := make([]int64, 0, len(photos))
 	for _, photo := range photos {
-		items = append(items, response.PhotoListItem{
+		photoIDs = append(photoIDs, photo.ID)
+	}
+
+	tagMap, err := s.photoRepo.ListPhotoTagsByPhotoIDs(ctx, photoIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list photo tags failed: %w", err)
+	}
+
+	list := make([]response.PhotoListItem, 0, len(photos))
+	for _, photo := range photos {
+		list = append(list, response.PhotoListItem{
+			ID:            photo.ID,
 			UUID:          photo.UUID.String(),
+			Filename:      photo.Filename,
 			TitleCN:       ptrString(photo.TitleCN),
 			TitleEN:       ptrString(photo.TitleEN),
-			Orientation:   photo.Orientation,
 			ThumbURL:      ptrString(photo.ThumbURL),
 			DisplayURL:    ptrString(photo.DisplayURL),
+			Width:         photo.Width,
+			Height:        photo.Height,
+			Orientation:   photo.Orientation,
+			ShotTime:      formatTime(photo.ShotTime),
+			Aperture:      ptrString(photo.Aperture),
+			ShutterSpeed:  ptrString(photo.ShutterSpeed),
+			ISO:           ptrInt(photo.ISO),
 			LikeCount:     photo.LikeCount,
 			ViewCount:     photo.ViewCount,
 			DownloadCount: photo.DownloadCount,
-			ShotTime:      formatTime(photo.ShotTime),
+			Tags:          tagMap[photo.ID],
 		})
 	}
 
 	return &response.PhotoListData{
-		Items: items,
+		List: list,
 		Pagination: response.Pagination{
 			Page:       req.Page,
 			PageSize:   req.PageSize,
 			Total:      total,
 			TotalPages: pager.TotalPages(total, req.PageSize),
+		},
+		Query: response.PhotoListQuery{
+			Q:           req.Q,
+			Keywords:    req.KeywordList(),
+			Sort:        req.Sort,
+			Order:       req.Order,
+			Tags:        req.TagList(),
+			TagMode:     req.TagMode,
+			Orientation: req.Orientation,
+			Year:        req.Year,
+			Month:       req.Month,
+			Category:    req.Category,
 		},
 	}, nil
 }

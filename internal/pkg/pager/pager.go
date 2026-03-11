@@ -2,20 +2,24 @@ package pager
 
 const (
 	DefaultPage     = 1
-	DefaultPageSize = 20
-	MaxPageSize     = 100
+	DefaultPageSize = 30
+	MaxPageSize     = 60
 )
 
 func Normalize(page, pageSize int) (int, int) {
+	return NormalizeWith(page, pageSize, DefaultPageSize, MaxPageSize)
+}
+
+func NormalizeWith(page, pageSize, defaultPageSize, maxPageSize int) (int, int) {
 	if page < 1 {
 		page = DefaultPage
 	}
 
 	switch {
 	case pageSize < 1:
-		pageSize = DefaultPageSize
-	case pageSize > MaxPageSize:
-		pageSize = MaxPageSize
+		pageSize = defaultPageSize
+	case pageSize > maxPageSize:
+		pageSize = maxPageSize
 	}
 
 	return page, pageSize

@@ -1,21 +1,28 @@
 # luke-chu-site-api 架构说明
 
-## 分层结构
+## 分层设计
 
-- `handler`: Gin HTTP 接口层，负责参数绑定、调用 service、输出统一响应。
-- `service`: 业务编排层，承接业务流程与容错策略。
-- `repository`: 数据访问层，使用 `sqlx` 访问 PostgreSQL。
-- `db`: 数据库初始化与连接池管理。
-- `model`: 数据库实体映射结构。
-- `dto`: 请求与响应的数据结构。
+- `handler`: 参数绑定、调用 service、统一响应
+- `service`: 业务编排与响应组装
+- `repository`: SQL 查询与数据访问（sqlx + PostgreSQL）
+- `db`: 数据库连接初始化与连接池
+- `model`: 数据库实体映射
+- `dto`: 请求/响应结构
 
-## 调用链
+调用链：`handler -> service -> repository -> db`
 
-`handler -> service -> repository -> db`
+## 图片列表接口实现要点
 
-## 当前状态
+- 过滤条件构建集中在 repository，复用到列表和总数查询。
+- `q` 支持多关键词，采用 `EXISTS` 子查询匹配标签，避免主查询 join 造成重复行。
+- 标签过滤支持 `tagMode=any|all`。
+- 列表与标签分两步查询：
+  1. 查询分页照片
+  2. 按 photoIDs 批量查询标签并在 service 组装
 
-- 已完成可运行骨架与路由注册。
-- 图片与标签查询的真实 SQL 会在表结构落地后补充。
-- 当前仓储层通过 `to_regclass` 检查表存在，不存在时返回 `ErrNotImplemented`，由 service 提供降级响应。
+## 筛选项接口实现要点
+
+- `years/categories/orientations` 来自已发布照片聚合。
+- `tags` 通过 `tags + photo_tags + photos` 关联查询，仅返回与已发布照片有关联的标签。
+- `tagTypes` 固定返回 `subject|element|mood`。
 

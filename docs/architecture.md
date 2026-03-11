@@ -1,32 +1,33 @@
-# 架构说明
+﻿# 架构说明
 
 ## 分层结构
 
-- `handler`：参数绑定、基础校验、调用 service、返回统一响应
-- `service`：业务编排与领域规则处理
-- `repository`：使用 sqlx 进行手写 SQL 访问 PostgreSQL
-- `db`：数据库连接与连接池初始化
-- `dto`：请求/响应结构
-- `model`：数据库实体映射
+项目采用典型三层调用链：
 
-调用链：`handler -> service -> repository -> db`
+- Handler：参数绑定、输入校验、统一响应
+- Service：业务编排与错误语义转换
+- Repository：基于 sqlx 的手写 SQL 访问 PostgreSQL
 
-## 行为接口策略
+请求路径：`HTTP -> Gin Router -> Middleware -> Handler -> Service -> Repository -> PostgreSQL`
 
-- 点赞/取消点赞：通过 `photo_likes` 去重并在事务内维护 `photos.like_count`
-- 浏览计数：通过 `photo_views` 做 10 分钟窗口防刷
-- 下载计数：通过 `photo_downloads` 做 30 分钟窗口防刷
+## 中间件
+
+- `cors`：本地开发跨域支持
+- `logger`：请求方法、路径、状态码、耗时、IP
+- `recovery`：panic 保护并返回统一错误 JSON
+- `visitor`：基于 IP + UA + Accept-Language 生成 `visitor_hash`
+
+## 下载签名链路
+
+`POST /api/v1/photos/:uuid/download` 的处理流程：
+
+1. Repository 处理下载计数与 30 分钟防刷窗口
+2. Service 调用 OSS 预签名组件
+3. 返回临时签名 `downloadUrl` 给前端
+
+说明：AK/SK 不写入代码，SDK 从环境变量读取 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`。
 
 ## 测试策略
 
-当前测试分两层：
-
-1. 单元测试
-- 覆盖关键词解析、排序归一化、分页处理、visitor hash
-- 补充了请求参数归一化测试
-
-2. 接口层集成测试
-- 使用 `net/http/httptest` + Gin Router
-- 通过 stub service 验证 handler/router 行为
-- 不依赖真实 PostgreSQL，重点验证参数校验、状态码与响应结构
-
+- 单元测试：聚焦工具函数和请求归一化逻辑
+- 接口集成测试：`httptest` + Gin Router + stub service，不依赖真实 PostgreSQL

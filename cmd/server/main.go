@@ -12,6 +12,7 @@ import (
 	"luke-chu-site-api/internal/config"
 	"luke-chu-site-api/internal/db"
 	"luke-chu-site-api/internal/handler"
+	ossutil "luke-chu-site-api/internal/pkg/oss"
 	"luke-chu-site-api/internal/repository"
 	"luke-chu-site-api/internal/service"
 )
@@ -41,9 +42,13 @@ func main() {
 	photoRepo := repository.NewPhotoRepository(pg)
 	tagRepo := repository.NewTagRepository(pg)
 	filterRepo := repository.NewFilterRepository(pg)
+	downloadSigner, err := ossutil.NewPresignDownloadURLSigner(cfg.OSS)
+	if err != nil {
+		logger.Fatal("failed to initialize oss signer", zap.Error(err))
+	}
 
 	photoService := service.NewPhotoService(photoRepo)
-	behaviorService := service.NewBehaviorService(photoRepo)
+	behaviorService := service.NewBehaviorService(photoRepo, downloadSigner)
 	tagService := service.NewTagService(tagRepo)
 	filterService := service.NewFilterService(filterRepo)
 

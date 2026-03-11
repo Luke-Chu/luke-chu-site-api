@@ -17,6 +17,7 @@ type Config struct {
 	App      AppConfig      `mapstructure:"app"`
 	Server   ServerConfig   `mapstructure:"server"`
 	Postgres PostgresConfig `mapstructure:"postgres"`
+	OSS      OSSConfig      `mapstructure:"oss"`
 	Log      LogConfig      `mapstructure:"log"`
 }
 
@@ -45,6 +46,14 @@ type PostgresConfig struct {
 
 type LogConfig struct {
 	Level string `mapstructure:"level"`
+}
+
+type OSSConfig struct {
+	BucketName          string `mapstructure:"bucket_name"`
+	Endpoint            string `mapstructure:"endpoint"`
+	PublicBaseURL       string `mapstructure:"public_base_url"`
+	Region              string `mapstructure:"region"`
+	PresignExpireSecond int    `mapstructure:"presign_expire_seconds"`
 }
 
 func Load() (*Config, error) {
@@ -91,5 +100,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("postgres.max_open_conns", 20)
 	v.SetDefault("postgres.max_idle_conns", 10)
 	v.SetDefault("postgres.conn_max_lifetime_minutes", 30)
+	v.SetDefault("oss.presign_expire_seconds", 300)
 	v.SetDefault("log.level", "info")
 }

@@ -1,4 +1,4 @@
-# curl 调用示例
+﻿# curl 调用示例
 
 基础地址：`http://localhost:8080`
 
@@ -23,7 +23,7 @@ curl -G "http://localhost:8080/api/v1/photos" \
   --data-urlencode "q=天空,风筝"
 ```
 
-### 2.3 带标签/排序/分页查询
+### 2.3 标签 + 排序 + 分页
 
 ```bash
 curl -G "http://localhost:8080/api/v1/photos" \
@@ -60,15 +60,16 @@ curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/like"
 ```
 
-## 7. 下载
-
-```bash
-curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/download"
-```
-
-## 附：取消点赞
+## 7. 取消点赞
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/unlike"
 ```
 
+## 8. 下载
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/download"
+```
+
+说明：`download` 接口返回的 `downloadUrl` 是 OSS 预签名临时 URL，前端应直接使用该 URL 发起下载请求。

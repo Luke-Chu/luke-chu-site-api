@@ -1,9 +1,9 @@
-# 接口设计说明
+﻿# 接口设计说明
 
 ## 基础信息
 
 - 路由前缀：`/api/v1`
-- 统一响应格式：
+- 响应格式：
 
 ```json
 {
@@ -13,7 +13,7 @@
 }
 ```
 
-错误时：
+失败示例：
 
 ```json
 {
@@ -36,17 +36,10 @@
 
 ---
 
-## 1) 健康检查
+## 1. 健康检查
 
-### 接口
-
-- `GET /api/v1/health`
-
-### 说明
-
-返回服务状态，用于健康探活。
-
-### curl 示例
+- 方法与路径：`GET /api/v1/health`
+- 说明：用于服务探活
 
 ```bash
 curl -X GET "http://localhost:8080/api/v1/health"
@@ -54,27 +47,22 @@ curl -X GET "http://localhost:8080/api/v1/health"
 
 ---
 
-## 2) 图片列表
+## 2. 图片列表
 
-### 接口
+- 方法与路径：`GET /api/v1/photos`
+- 说明：支持关键词搜索、标签筛选、排序与分页
 
-- `GET /api/v1/photos`
+Query 参数：
 
-### Query 参数
-
-- `q`：统一搜索词，支持空格、英文逗号、中文逗号、顿号分词
+- `q`：统一搜索词，支持空格/英文逗号/中文逗号/顿号分词
 - `page`：页码，默认 `1`
 - `pageSize`：每页数量，默认 `30`，最大 `60`
 - `sort`：`shot_time|like_count|view_count|download_count|created_at`
 - `order`：`asc|desc`
-- `tags`：标签筛选
+- `tags`：标签字符串，逗号分隔
 - `tagMode`：`any|all`
 - `orientation`：`landscape|portrait|square`
-- `year`
-- `month`
-- `category`
-
-### curl 示例
+- `year`、`month`、`category`
 
 ```bash
 curl -G "http://localhost:8080/api/v1/photos" \
@@ -89,17 +77,10 @@ curl -G "http://localhost:8080/api/v1/photos" \
 
 ---
 
-## 3) 筛选项
+## 3. 筛选项
 
-### 接口
-
-- `GET /api/v1/filters`
-
-### 说明
-
-用于列表页初始化筛选项，返回 `years/categories/orientations/tagTypes/tags`。
-
-### curl 示例
+- 方法与路径：`GET /api/v1/filters`
+- 说明：返回 years/categories/orientations/tagTypes/tags
 
 ```bash
 curl -X GET "http://localhost:8080/api/v1/filters"
@@ -107,27 +88,17 @@ curl -X GET "http://localhost:8080/api/v1/filters"
 
 ---
 
-## 4) 图片详情
+## 4. 图片详情
 
-### 接口
-
-- `GET /api/v1/photos/:uuid`
-
-### Path 参数
-
-- `uuid`：图片 UUID
-
-### 说明
-
-返回单张已发布图片详情及标签。详情字段包含 `exposureCompensation`（对应数据库 `exposure_compensation`）。
-
-### curl 示例
+- 方法与路径：`GET /api/v1/photos/:uuid`
+- Path 参数：`uuid`（图片 UUID）
+- 说明：返回已发布图片详情和标签，包含 `exposureCompensation`
 
 ```bash
 curl -X GET "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000"
 ```
 
-### 错误语义
+错误语义：
 
 - `400`：UUID 非法
 - `404`：图片不存在
@@ -135,72 +106,32 @@ curl -X GET "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-4466554
 
 ---
 
-## 5) 记录浏览行为
+## 5. 浏览行为
 
-### 接口
-
-- `POST /api/v1/photos/:uuid/view`
-
-### 说明
-
-带防刷窗口（10 分钟）：
-
-- 同一 visitor 在窗口内重复请求不重复累加
-- 返回 `counted` 标记本次是否计数
-
-### curl 示例
+- 方法与路径：`POST /api/v1/photos/:uuid/view`
+- 说明：10 分钟防刷窗口；窗口内重复请求不重复计数，返回 `counted=false`
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/view"
 ```
 
-### 错误语义
-
-- `400`：UUID 非法
-- `404`：图片不存在
-- `500`：服务异常
-
 ---
 
-## 6) 点赞
+## 6. 点赞
 
-### 接口
-
-- `POST /api/v1/photos/:uuid/like`
-
-### 说明
-
-- visitor hash 来自中间件
-- 使用 `photo_likes(photo_id, visitor_hash)` 去重
-- 首次点赞 `liked=true`，重复点赞 `liked=false`
-
-### curl 示例
+- 方法与路径：`POST /api/v1/photos/:uuid/like`
+- 说明：visitor hash 来自中间件；同一 visitor 不重复点赞
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/like"
 ```
 
-### 错误语义
-
-- `400`：UUID 非法或 visitor 信息缺失
-- `404`：图片不存在
-- `500`：服务异常
-
 ---
 
-## 7) 取消点赞
+## 7. 取消点赞
 
-### 接口
-
-- `POST /api/v1/photos/:uuid/unlike`
-
-### 说明
-
-- visitor hash 来自中间件
-- 删除当前 visitor 点赞记录
-- 若删除成功，`like_count` 回退（不小于 0）
-
-### curl 示例
+- 方法与路径：`POST /api/v1/photos/:uuid/unlike`
+- 说明：删除当前 visitor 点赞记录，计数回退并保证不小于 0
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/unlike"
@@ -208,32 +139,23 @@ curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655
 
 ---
 
-## 8) 记录下载行为
+## 8. 下载行为
 
-### 接口
-
-- `POST /api/v1/photos/:uuid/download`
-
-### 说明
-
-带防刷窗口（30 分钟）：
-
-- 同一 visitor 在窗口内重复请求不重复累加
-- 返回最新 `downloadCount`、`downloadUrl` 和 `counted`
-
-### curl 示例
+- 方法与路径：`POST /api/v1/photos/:uuid/download`
+- 说明：
+  - 30 分钟防刷窗口；窗口内重复请求不重复计数，返回 `counted=false`
+  - 返回 `downloadUrl` 为 OSS 预签名临时 URL（非裸公网 URL）
 
 ```bash
 curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/download"
 ```
 
-### 错误语义
+错误语义：
 
 - `400`：UUID 非法
 - `404`：图片不存在
-- `500`：服务异常
+- `500`：服务异常（含 OSS 预签名失败）
 
 ---
 
-更多示例请参考：[curl-examples.md](/docs/curl-examples.md)
-
+更多示例见：`docs/curl-examples.md`

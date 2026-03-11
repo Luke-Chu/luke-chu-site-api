@@ -3,6 +3,7 @@ module luke-chu-site-api
 go 1.22
 
 require (
+	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.4.0
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-playground/validator/v10 v10.20.0
 	github.com/google/uuid v1.6.0
@@ -45,6 +46,7 @@ require (
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/time v0.8.0 // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -117,7 +117,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/v1/photos/{uuid}/download:
     post:
-      summary: 记录下载行为
+      summary: 记录下载行为并返回临时签名URL
       tags: [图片行为]
       parameters:
         - $ref: '#/components/parameters/Uuid'
@@ -593,8 +593,10 @@ components:
           format: int64
         downloadUrl:
           type: string
+          description: OSS 预签名临时下载 URL
         counted:
           type: boolean
+          description: 是否在防刷窗口外并成功累计计数
       required: [uuid, downloadCount, downloadUrl, counted]
     PhotoDownloadResponse:
       type: object
@@ -608,4 +610,3 @@ components:
         data:
           $ref: '#/components/schemas/PhotoDownloadData'
       required: [code, message, data]
-

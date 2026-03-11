@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"luke-chu-site-api/internal/dto/response"
+	ossutil "luke-chu-site-api/internal/pkg/oss"
 	"luke-chu-site-api/internal/repository"
 )
 
@@ -19,10 +20,14 @@ type BehaviorService interface {
 
 type behaviorService struct {
 	photoRepo repository.PhotoRepository
+	signer    ossutil.DownloadURLSigner
 }
 
-func NewBehaviorService(photoRepo repository.PhotoRepository) BehaviorService {
-	return &behaviorService{photoRepo: photoRepo}
+func NewBehaviorService(photoRepo repository.PhotoRepository, signer ossutil.DownloadURLSigner) BehaviorService {
+	return &behaviorService{
+		photoRepo: photoRepo,
+		signer:    signer,
+	}
 }
 
 func (s *behaviorService) ViewPhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoViewData, error) {
@@ -82,16 +87,24 @@ func (s *behaviorService) DownloadPhoto(ctx context.Context, photoUUID, visitorH
 	if visitorHash == "" {
 		return nil, fmt.Errorf("visitor hash is required")
 	}
+	if s.signer == nil {
+		return nil, fmt.Errorf("download signer is not configured")
+	}
 
 	count, url, counted, err := s.photoRepo.IncrementDownloadCount(ctx, photoUUID, visitorHash)
 	if err == nil || errors.Is(err, repository.ErrNotImplemented) || errors.Is(err, repository.ErrRepositoryNotReady) {
+		signedURL, signErr := s.signer.SignDownloadURL(ctx, url)
+		if signErr != nil {
+			return nil, fmt.Errorf("sign download url failed: %w", signErr)
+		}
 		return &response.PhotoDownloadData{
 			UUID:          photoUUID,
 			DownloadCount: count,
-			DownloadURL:   url,
+			DownloadURL:   signedURL,
 			Counted:       counted,
 		}, nil
 	}
+
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrPhotoNotFound
 	}

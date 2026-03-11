@@ -22,4 +22,5 @@ type PhotoDownloadData struct {
 	UUID          string `json:"uuid"`
 	DownloadCount int64  `json:"downloadCount"`
 	DownloadURL   string `json:"downloadUrl"`
+	Counted       bool   `json:"counted"`
 }

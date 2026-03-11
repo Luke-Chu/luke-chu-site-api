@@ -151,7 +151,14 @@ func (h *PhotoHandler) DownloadPhoto(c *gin.Context) {
 		return
 	}
 
-	data, err := h.behaviorService.DownloadPhoto(c.Request.Context(), photoUUID)
+	visitorHash, _ := c.Get(middleware.VisitorHashKey)
+	hash, _ := visitorHash.(string)
+	if hash == "" {
+		response.Error(c, http.StatusBadRequest, 40003, "visitor hash missing")
+		return
+	}
+
+	data, err := h.behaviorService.DownloadPhoto(c.Request.Context(), photoUUID, hash)
 	if err != nil {
 		if errors.Is(err, service.ErrPhotoNotFound) {
 			response.Error(c, http.StatusNotFound, 40401, "photo not found")

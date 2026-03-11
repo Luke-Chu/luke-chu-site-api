@@ -37,16 +37,16 @@ Default listen address: `:8080`.
 - `POST /api/v1/photos/:uuid/view` (implemented with anti-abuse window)
 - `POST /api/v1/photos/:uuid/like` (implemented with dedup like)
 - `POST /api/v1/photos/:uuid/unlike` (implemented with count rollback)
-- `POST /api/v1/photos/:uuid/download` (implemented with count increment + url)
+- `POST /api/v1/photos/:uuid/download` (implemented with anti-abuse window + url)
 - `GET /api/v1/tags`
 - `GET /api/v1/filters`
 
 ## New In This Step
 
-- Added anti-abuse window for `POST /api/v1/photos/:uuid/view`.
-- View anti-abuse behavior:
-  - same visitor within 10 minutes is not counted repeatedly
-  - records visit in `photo_views`
+- Added anti-abuse window for `POST /api/v1/photos/:uuid/download`.
+- Download anti-abuse behavior:
+  - same visitor within 30 minutes is not counted repeatedly
+  - records download in `photo_downloads`
   - response includes `counted` to indicate whether this request increased count
 
 ## Build

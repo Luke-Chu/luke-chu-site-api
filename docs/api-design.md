@@ -104,17 +104,19 @@ Increase download count and return original download URL.
 ### Behavior
 
 - Validate UUID format.
-- Update published photo only:
-  - `download_count = download_count + 1`
-  - `updated_at = NOW()`
+- Read `visitor_hash` from middleware context.
+- Time-window anti-abuse:
+  - if same visitor downloaded this photo within 30 minutes, do not increment count
+  - otherwise insert a record into `photo_downloads` and increment `download_count`
 - Return:
   - `uuid`
   - latest `downloadCount`
   - `downloadUrl` (`original_url`)
+  - `counted`
 
 ### Error Semantics
 
-- `400`: invalid UUID
+- `400`: invalid UUID / missing visitor hash
 - `404`: photo not found
 - `500`: database/internal error
 

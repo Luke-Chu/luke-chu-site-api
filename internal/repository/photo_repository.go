@@ -39,7 +39,7 @@ type PhotoRepository interface {
 	GetPhotoTagsByPhotoID(ctx context.Context, photoID int64) ([]response.TagItem, error)
 	GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error)
 	IncrementViewCount(ctx context.Context, uuid, visitorHash string) (int64, bool, error)
-	IncrementDownloadCount(ctx context.Context, uuid string) (int64, string, error)
+	IncrementDownloadCount(ctx context.Context, uuid, visitorHash string) (int64, string, bool, error)
 	AddLike(ctx context.Context, uuid, visitorHash string) (bool, int64, error)
 	RemoveLike(ctx context.Context, uuid, visitorHash string) (bool, int64, error)
 }
@@ -321,29 +321,79 @@ RETURNING view_count
 	return count, true, nil
 }
 
-func (r *SQLXPhotoRepository) IncrementDownloadCount(ctx context.Context, uuid string) (int64, string, error) {
+func (r *SQLXPhotoRepository) IncrementDownloadCount(ctx context.Context, uuid, visitorHash string) (int64, string, bool, error) {
 	if r.db == nil {
-		return 0, "", ErrRepositoryNotReady
+		return 0, "", false, ErrRepositoryNotReady
 	}
 
-	type downloadRow struct {
-		Count int64          `db:"download_count"`
-		URL   sql.NullString `db:"original_url"`
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return 0, "", false, fmt.Errorf("begin tx failed: %w", err)
 	}
-	var row downloadRow
-	err := r.db.GetContext(ctx, &row, `
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	type baseRow struct {
+		PhotoID int64          `db:"id"`
+		Count   int64          `db:"download_count"`
+		URL     sql.NullString `db:"original_url"`
+	}
+	var base baseRow
+	err = tx.GetContext(ctx, &base, `
+SELECT id, download_count, original_url
+FROM photos
+WHERE uuid = $1
+  AND is_published = TRUE
+LIMIT 1
+`, uuid)
+	if err != nil {
+		return 0, "", false, err
+	}
+
+	var inWindow bool
+	if err := tx.GetContext(ctx, &inWindow, `
+SELECT EXISTS (
+	SELECT 1
+	FROM photo_downloads
+	WHERE photo_id = $1
+	  AND visitor_hash = $2
+	  AND created_at >= NOW() - INTERVAL '30 minutes'
+)
+`, base.PhotoID, visitorHash); err != nil {
+		return 0, "", false, fmt.Errorf("check photo_downloads window failed: %w", err)
+	}
+
+	if inWindow {
+		if err := tx.Commit(); err != nil {
+			return 0, "", false, fmt.Errorf("commit tx failed: %w", err)
+		}
+		return base.Count, base.URL.String, false, nil
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO photo_downloads (photo_id, visitor_hash, created_at)
+VALUES ($1, $2, NOW())
+`, base.PhotoID, visitorHash); err != nil {
+		return 0, "", false, fmt.Errorf("insert photo_downloads failed: %w", err)
+	}
+
+	var count int64
+	if err := tx.GetContext(ctx, &count, `
 UPDATE photos
 SET download_count = download_count + 1,
 	updated_at = NOW()
-WHERE uuid = $1
-  AND is_published = TRUE
-RETURNING download_count, original_url
-`, uuid)
-	if err != nil {
-		return 0, "", err
+WHERE id = $1
+RETURNING download_count
+`, base.PhotoID); err != nil {
+		return 0, "", false, err
 	}
 
-	return row.Count, row.URL.String, nil
+	if err := tx.Commit(); err != nil {
+		return 0, "", false, fmt.Errorf("commit tx failed: %w", err)
+	}
+
+	return count, base.URL.String, true, nil
 }
 
 func (r *SQLXPhotoRepository) AddLike(ctx context.Context, uuid, visitorHash string) (bool, int64, error) {

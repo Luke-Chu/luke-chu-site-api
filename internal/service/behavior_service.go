@@ -14,7 +14,7 @@ type BehaviorService interface {
 	ViewPhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoViewData, error)
 	LikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoLikeData, error)
 	UnlikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoUnlikeData, error)
-	DownloadPhoto(ctx context.Context, photoUUID string) (*response.PhotoDownloadData, error)
+	DownloadPhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoDownloadData, error)
 }
 
 type behaviorService struct {
@@ -78,13 +78,18 @@ func (s *behaviorService) UnlikePhoto(ctx context.Context, photoUUID, visitorHas
 	return nil, fmt.Errorf("unlike photo failed: %w", err)
 }
 
-func (s *behaviorService) DownloadPhoto(ctx context.Context, photoUUID string) (*response.PhotoDownloadData, error) {
-	count, url, err := s.photoRepo.IncrementDownloadCount(ctx, photoUUID)
+func (s *behaviorService) DownloadPhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoDownloadData, error) {
+	if visitorHash == "" {
+		return nil, fmt.Errorf("visitor hash is required")
+	}
+
+	count, url, counted, err := s.photoRepo.IncrementDownloadCount(ctx, photoUUID, visitorHash)
 	if err == nil || errors.Is(err, repository.ErrNotImplemented) || errors.Is(err, repository.ErrRepositoryNotReady) {
 		return &response.PhotoDownloadData{
 			UUID:          photoUUID,
 			DownloadCount: count,
 			DownloadURL:   url,
+			Counted:       counted,
 		}, nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {

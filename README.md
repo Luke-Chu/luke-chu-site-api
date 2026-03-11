@@ -1,27 +1,27 @@
 # luke-chu-site-api
 
-Backend service for `luke-chu.com`. Current focus is the photography module.
+`luke-chu.com` 个人网站后端服务，当前以摄影图库模块为主，后续可继续扩展更多业务模块。
 
-## Tech Stack
+## 技术栈
 
 - Go
 - Gin
 - sqlx
 - PostgreSQL
-- Viper (YAML config)
+- Viper（YAML 配置）
 - Zap
 - go-playground/validator
 - google/uuid
 
-## Run Local
+## 本地运行
 
 ```bash
 APP_ENV=local go run ./cmd/server
 ```
 
-Default listen address: `:8080`.
+默认监听地址：`http://localhost:8080`
 
-## Database (local default)
+## 本地数据库默认配置
 
 - host: `127.0.0.1`
 - port: `5432`
@@ -29,28 +29,55 @@ Default listen address: `:8080`.
 - password: `1234`
 - dbname: `luke-chu-site`
 
-## Current APIs
+## 当前已实现接口
 
 - `GET /api/v1/health`
 - `GET /api/v1/photos`
-- `GET /api/v1/photos/:uuid` (implemented with full detail + tags)
-- `POST /api/v1/photos/:uuid/view` (implemented with anti-abuse window)
-- `POST /api/v1/photos/:uuid/like` (implemented with dedup like)
-- `POST /api/v1/photos/:uuid/unlike` (implemented with count rollback)
-- `POST /api/v1/photos/:uuid/download` (implemented with anti-abuse window + url)
-- `GET /api/v1/tags`
 - `GET /api/v1/filters`
+- `GET /api/v1/photos/:uuid`
+- `POST /api/v1/photos/:uuid/view`
+- `POST /api/v1/photos/:uuid/like`
+- `POST /api/v1/photos/:uuid/unlike`
+- `POST /api/v1/photos/:uuid/download`
 
-## New In This Step
+## 测试
 
-- Added anti-abuse window for `POST /api/v1/photos/:uuid/download`.
-- Download anti-abuse behavior:
-  - same visitor within 30 minutes is not counted repeatedly
-  - records download in `photo_downloads`
-  - response includes `counted` to indicate whether this request increased count
+### 运行全部测试
 
-## Build
+```bash
+go test ./...
+```
+
+### 当前测试覆盖范围
+
+- 工具层单元测试
+  - `internal/pkg/search/keyword.go`
+  - `internal/pkg/sort/sort.go`
+  - `internal/pkg/pager/pager.go`
+  - `internal/pkg/visitor/hash.go`
+- 请求归一化单元测试
+  - `internal/dto/request/photo_list_request.go`
+- 接口层集成测试（基于 `httptest` + Gin Router + stub service）
+  - `GET /api/v1/health`
+  - `GET /api/v1/photos`
+  - `GET /api/v1/filters`
+  - `GET /api/v1/photos/:uuid`
+  - `POST /api/v1/photos/:uuid/view`
+  - `POST /api/v1/photos/:uuid/like`
+  - `POST /api/v1/photos/:uuid/download`
+
+## 文档
+
+- 接口设计：`docs/api-design.md`
+- curl 示例：`docs/curl-examples.md`
+- 架构说明：`docs/architecture.md`
+- OpenAPI 草稿：`api/openapi/openapi.yaml`
+
+## 构建
 
 ```bash
 ./scripts/build.sh
 ```
+
+构建产物：`bin/luke-chu-site-api`
+

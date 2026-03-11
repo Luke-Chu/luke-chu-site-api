@@ -1,12 +1,9 @@
-# API Design
+# 接口设计说明
 
-## Base Path
+## 基础信息
 
-- `/api/v1`
-
-## Response Envelope
-
-Success:
+- 路由前缀：`/api/v1`
+- 统一响应格式：
 
 ```json
 {
@@ -16,7 +13,7 @@ Success:
 }
 ```
 
-Error:
+错误时：
 
 ```json
 {
@@ -26,164 +23,217 @@ Error:
 }
 ```
 
-## Implemented Routes
+## 接口列表
 
 - `GET /api/v1/health`
 - `GET /api/v1/photos`
+- `GET /api/v1/filters`
 - `GET /api/v1/photos/:uuid`
 - `POST /api/v1/photos/:uuid/view`
 - `POST /api/v1/photos/:uuid/like`
 - `POST /api/v1/photos/:uuid/unlike`
 - `POST /api/v1/photos/:uuid/download`
-- `GET /api/v1/tags`
+
+---
+
+## 1) 健康检查
+
+### 接口
+
+- `GET /api/v1/health`
+
+### 说明
+
+返回服务状态，用于健康探活。
+
+### curl 示例
+
+```bash
+curl -X GET "http://localhost:8080/api/v1/health"
+```
+
+---
+
+## 2) 图片列表
+
+### 接口
+
+- `GET /api/v1/photos`
+
+### Query 参数
+
+- `q`：统一搜索词，支持空格、英文逗号、中文逗号、顿号分词
+- `page`：页码，默认 `1`
+- `pageSize`：每页数量，默认 `30`，最大 `60`
+- `sort`：`shot_time|like_count|view_count|download_count|created_at`
+- `order`：`asc|desc`
+- `tags`：标签筛选
+- `tagMode`：`any|all`
+- `orientation`：`landscape|portrait|square`
+- `year`
+- `month`
+- `category`
+
+### curl 示例
+
+```bash
+curl -G "http://localhost:8080/api/v1/photos" \
+  --data-urlencode "q=天空,风筝" \
+  --data-urlencode "page=2" \
+  --data-urlencode "pageSize=20" \
+  --data-urlencode "sort=view_count" \
+  --data-urlencode "order=asc" \
+  --data-urlencode "tags=风光,夕阳" \
+  --data-urlencode "tagMode=all"
+```
+
+---
+
+## 3) 筛选项
+
+### 接口
+
 - `GET /api/v1/filters`
 
-## GET /api/v1/photos/:uuid
+### 说明
 
-### Purpose
+用于列表页初始化筛选项，返回 `years/categories/orientations/tagTypes/tags`。
 
-Return published photo detail for the detail page.
+### curl 示例
 
-### Path Param
+```bash
+curl -X GET "http://localhost:8080/api/v1/filters"
+```
 
-- `uuid`: photo UUID
+---
 
-### Behavior
+## 4) 图片详情
 
-- Validate UUID format.
-- Query photo with `is_published = true`.
-- Query all tags for this photo.
-- Return detail fields + tags.
+### 接口
 
-### Error Semantics
+- `GET /api/v1/photos/:uuid`
 
-- `400`: invalid UUID
-- `404`: photo not found
-- `500`: database/internal error
+### Path 参数
 
-## POST /api/v1/photos/:uuid/like
+- `uuid`：图片 UUID
 
-### Purpose
+### 说明
 
-Like a published photo with visitor-based deduplication.
+返回单张已发布图片详情及标签。详情字段包含 `exposureCompensation`（对应数据库 `exposure_compensation`）。
 
-### Path Param
+### curl 示例
 
-- `uuid`: photo UUID
+```bash
+curl -X GET "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000"
+```
 
-### Behavior
+### 错误语义
 
-- Validate UUID format.
-- Read `visitor_hash` from middleware context.
-- Transaction flow:
-  - locate published photo by UUID
-  - `INSERT INTO photo_likes ... ON CONFLICT DO NOTHING`
-  - if inserted: `like_count + 1`
-  - if conflict: keep count unchanged
-- Return:
-  - `liked = true` for first like
-  - `liked = false` for duplicate like
-  - latest `likeCount`
+- `400`：UUID 非法
+- `404`：图片不存在
+- `500`：服务异常
 
-### Error Semantics
+---
 
-- `400`: invalid UUID / missing visitor hash
-- `404`: photo not found
-- `500`: database/internal error
+## 5) 记录浏览行为
 
-## POST /api/v1/photos/:uuid/download
+### 接口
 
-### Purpose
+- `POST /api/v1/photos/:uuid/view`
 
-Increase download count and return original download URL.
+### 说明
 
-### Path Param
+带防刷窗口（10 分钟）：
 
-- `uuid`: photo UUID
+- 同一 visitor 在窗口内重复请求不重复累加
+- 返回 `counted` 标记本次是否计数
 
-### Behavior
+### curl 示例
 
-- Validate UUID format.
-- Read `visitor_hash` from middleware context.
-- Time-window anti-abuse:
-  - if same visitor downloaded this photo within 30 minutes, do not increment count
-  - otherwise insert a record into `photo_downloads` and increment `download_count`
-- Return:
-  - `uuid`
-  - latest `downloadCount`
-  - `downloadUrl` (`original_url`)
-  - `counted`
+```bash
+curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/view"
+```
 
-### Error Semantics
+### 错误语义
 
-- `400`: invalid UUID / missing visitor hash
-- `404`: photo not found
-- `500`: database/internal error
+- `400`：UUID 非法
+- `404`：图片不存在
+- `500`：服务异常
 
-## POST /api/v1/photos/:uuid/unlike
+---
 
-### Purpose
+## 6) 点赞
 
-Cancel a previous like by the same visitor and rollback `like_count`.
+### 接口
 
-### Path Param
+- `POST /api/v1/photos/:uuid/like`
 
-- `uuid`: photo UUID
+### 说明
 
-### Behavior
+- visitor hash 来自中间件
+- 使用 `photo_likes(photo_id, visitor_hash)` 去重
+- 首次点赞 `liked=true`，重复点赞 `liked=false`
 
-- Validate UUID format.
-- Read `visitor_hash` from middleware context.
-- Transaction flow:
-  - locate published photo by UUID
-  - `DELETE FROM photo_likes WHERE photo_id = ? AND visitor_hash = ?`
-  - if deleted: decrement `like_count` (floor at 0)
-  - if no record deleted: keep count unchanged
-- Return:
-  - `unliked = true` if rollback happened
-  - latest `likeCount`
+### curl 示例
 
-### Error Semantics
+```bash
+curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/like"
+```
 
-- `400`: invalid UUID / missing visitor hash
-- `404`: photo not found
-- `500`: database/internal error
+### 错误语义
 
-### Response Fields (core)
+- `400`：UUID 非法或 visitor 信息缺失
+- `404`：图片不存在
+- `500`：服务异常
 
-- `id`, `uuid`, `filename`
-- `titleCn`, `titleEn`, `description`, `category`
-- `shotTime`, `width`, `height`, `resolution`, `orientation`
-- `cameraModel`, `lensModel`, `focalLength`, `focalLength35mm`
-- `aperture`, `shutterSpeed`, `iso`
-- `meteringMode`, `exposureCompensation`, `exposureProgram`
-- `whiteBalance`, `flash`
-- `thumbUrl`, `displayUrl`, `originalUrl`
-- `likeCount`, `viewCount`, `downloadCount`
-- `createdAt`, `updatedAt`
-- `tags` (`id`, `name`, `tagType`)
+---
 
-## POST /api/v1/photos/:uuid/view
+## 7) 取消点赞
 
-### Purpose
+### 接口
 
-Increase view count and return latest `viewCount`.
+- `POST /api/v1/photos/:uuid/unlike`
 
-### Path Param
+### 说明
 
-- `uuid`: photo UUID
+- visitor hash 来自中间件
+- 删除当前 visitor 点赞记录
+- 若删除成功，`like_count` 回退（不小于 0）
 
-### Behavior
+### curl 示例
 
-- Validate UUID format.
-- Read `visitor_hash` from middleware context.
-- Time-window anti-abuse:
-  - if same visitor viewed this photo within 10 minutes, do not increment count
-  - otherwise insert a record into `photo_views` and increment `view_count`
-- Return `uuid`, latest `viewCount`, and `counted`.
+```bash
+curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/unlike"
+```
 
-### Error Semantics
+---
 
-- `400`: invalid UUID / missing visitor hash
-- `404`: photo not found
-- `500`: database/internal error
+## 8) 记录下载行为
+
+### 接口
+
+- `POST /api/v1/photos/:uuid/download`
+
+### 说明
+
+带防刷窗口（30 分钟）：
+
+- 同一 visitor 在窗口内重复请求不重复累加
+- 返回最新 `downloadCount`、`downloadUrl` 和 `counted`
+
+### curl 示例
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/photos/550e8400-e29b-41d4-a716-446655440000/download"
+```
+
+### 错误语义
+
+- `400`：UUID 非法
+- `404`：图片不存在
+- `500`：服务异常
+
+---
+
+更多示例请参考：[curl-examples.md](/docs/curl-examples.md)
+

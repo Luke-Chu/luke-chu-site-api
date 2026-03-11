@@ -3,6 +3,7 @@ package response
 type PhotoViewData struct {
 	UUID      string `json:"uuid"`
 	ViewCount int64  `json:"viewCount"`
+	Counted   bool   `json:"counted"`
 }
 
 type PhotoLikeData struct {

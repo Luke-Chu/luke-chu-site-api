@@ -38,7 +38,7 @@ type PhotoRepository interface {
 	GetPublishedPhotoBaseByUUID(ctx context.Context, uuid string) (*model.Photo, error)
 	GetPhotoTagsByPhotoID(ctx context.Context, photoID int64) ([]response.TagItem, error)
 	GetPhotoByUUID(ctx context.Context, uuid string) (*model.Photo, error)
-	IncrementViewCount(ctx context.Context, uuid string) (int64, error)
+	IncrementViewCount(ctx context.Context, uuid, visitorHash string) (int64, bool, error)
 	IncrementDownloadCount(ctx context.Context, uuid string) (int64, string, error)
 	AddLike(ctx context.Context, uuid, visitorHash string) (bool, int64, error)
 	RemoveLike(ctx context.Context, uuid, visitorHash string) (bool, int64, error)
@@ -249,25 +249,76 @@ LIMIT 1
 	return &photo, nil
 }
 
-func (r *SQLXPhotoRepository) IncrementViewCount(ctx context.Context, uuid string) (int64, error) {
+func (r *SQLXPhotoRepository) IncrementViewCount(ctx context.Context, uuid, visitorHash string) (int64, bool, error) {
 	if r.db == nil {
-		return 0, ErrRepositoryNotReady
+		return 0, false, ErrRepositoryNotReady
+	}
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return 0, false, fmt.Errorf("begin tx failed: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	var photoID int64
+	if err := tx.GetContext(ctx, &photoID, `
+SELECT id
+FROM photos
+WHERE uuid = $1
+  AND is_published = TRUE
+LIMIT 1
+`, uuid); err != nil {
+		return 0, false, err
+	}
+
+	var inWindow bool
+	if err := tx.GetContext(ctx, &inWindow, `
+SELECT EXISTS (
+	SELECT 1
+	FROM photo_views
+	WHERE photo_id = $1
+	  AND visitor_hash = $2
+	  AND created_at >= NOW() - INTERVAL '10 minutes'
+)
+`, photoID, visitorHash); err != nil {
+		return 0, false, fmt.Errorf("check photo_views window failed: %w", err)
 	}
 
 	var count int64
-	err := r.db.GetContext(ctx, &count, `
+	if inWindow {
+		if err := tx.GetContext(ctx, &count, `SELECT view_count FROM photos WHERE id = $1`, photoID); err != nil {
+			return 0, false, fmt.Errorf("query view_count failed: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return 0, false, fmt.Errorf("commit tx failed: %w", err)
+		}
+		return count, false, nil
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO photo_views (photo_id, visitor_hash, created_at)
+VALUES ($1, $2, NOW())
+`, photoID, visitorHash); err != nil {
+		return 0, false, fmt.Errorf("insert photo_views failed: %w", err)
+	}
+
+	if err := tx.GetContext(ctx, &count, `
 UPDATE photos
 SET view_count = view_count + 1,
 	updated_at = NOW()
-WHERE uuid = $1
-  AND is_published = TRUE
+WHERE id = $1
 RETURNING view_count
-`, uuid)
-	if err != nil {
-		return 0, err
+`, photoID); err != nil {
+		return 0, false, err
 	}
 
-	return count, nil
+	if err := tx.Commit(); err != nil {
+		return 0, false, fmt.Errorf("commit tx failed: %w", err)
+	}
+
+	return count, true, nil
 }
 
 func (r *SQLXPhotoRepository) IncrementDownloadCount(ctx context.Context, uuid string) (int64, string, error) {

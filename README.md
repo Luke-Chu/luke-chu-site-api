@@ -34,7 +34,7 @@ Default listen address: `:8080`.
 - `GET /api/v1/health`
 - `GET /api/v1/photos`
 - `GET /api/v1/photos/:uuid` (implemented with full detail + tags)
-- `POST /api/v1/photos/:uuid/view` (implemented with count increment)
+- `POST /api/v1/photos/:uuid/view` (implemented with anti-abuse window)
 - `POST /api/v1/photos/:uuid/like` (implemented with dedup like)
 - `POST /api/v1/photos/:uuid/unlike` (implemented with count rollback)
 - `POST /api/v1/photos/:uuid/download` (implemented with count increment + url)
@@ -43,13 +43,11 @@ Default listen address: `:8080`.
 
 ## New In This Step
 
-- Added `POST /api/v1/photos/:uuid/unlike`.
-- Unlike API behavior:
-  - UUID validation
-  - visitor hash from middleware context
-  - transactional delete from `photo_likes`
-  - if deleted: `like_count = GREATEST(like_count - 1, 0)`
-  - if no like record: keep current count
+- Added anti-abuse window for `POST /api/v1/photos/:uuid/view`.
+- View anti-abuse behavior:
+  - same visitor within 10 minutes is not counted repeatedly
+  - records visit in `photo_views`
+  - response includes `counted` to indicate whether this request increased count
 
 ## Build
 

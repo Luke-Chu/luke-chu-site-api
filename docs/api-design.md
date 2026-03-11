@@ -174,13 +174,14 @@ Increase view count and return latest `viewCount`.
 ### Behavior
 
 - Validate UUID format.
-- Update published photo only:
-  - `view_count = view_count + 1`
-  - `updated_at = NOW()`
-- Return `uuid` and latest `viewCount`.
+- Read `visitor_hash` from middleware context.
+- Time-window anti-abuse:
+  - if same visitor viewed this photo within 10 minutes, do not increment count
+  - otherwise insert a record into `photo_views` and increment `view_count`
+- Return `uuid`, latest `viewCount`, and `counted`.
 
 ### Error Semantics
 
-- `400`: invalid UUID
+- `400`: invalid UUID / missing visitor hash
 - `404`: photo not found
 - `500`: database/internal error

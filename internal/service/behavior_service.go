@@ -11,7 +11,7 @@ import (
 )
 
 type BehaviorService interface {
-	ViewPhoto(ctx context.Context, photoUUID string) (*response.PhotoViewData, error)
+	ViewPhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoViewData, error)
 	LikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoLikeData, error)
 	UnlikePhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoUnlikeData, error)
 	DownloadPhoto(ctx context.Context, photoUUID string) (*response.PhotoDownloadData, error)
@@ -25,10 +25,14 @@ func NewBehaviorService(photoRepo repository.PhotoRepository) BehaviorService {
 	return &behaviorService{photoRepo: photoRepo}
 }
 
-func (s *behaviorService) ViewPhoto(ctx context.Context, photoUUID string) (*response.PhotoViewData, error) {
-	count, err := s.photoRepo.IncrementViewCount(ctx, photoUUID)
+func (s *behaviorService) ViewPhoto(ctx context.Context, photoUUID, visitorHash string) (*response.PhotoViewData, error) {
+	if visitorHash == "" {
+		return nil, fmt.Errorf("visitor hash is required")
+	}
+
+	count, counted, err := s.photoRepo.IncrementViewCount(ctx, photoUUID, visitorHash)
 	if err == nil || errors.Is(err, repository.ErrNotImplemented) || errors.Is(err, repository.ErrRepositoryNotReady) {
-		return &response.PhotoViewData{UUID: photoUUID, ViewCount: count}, nil
+		return &response.PhotoViewData{UUID: photoUUID, ViewCount: count, Counted: counted}, nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrPhotoNotFound

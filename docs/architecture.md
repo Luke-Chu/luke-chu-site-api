@@ -84,3 +84,10 @@
 - 触发：`push tag(v*)` 或手动触发
 - 产物：多平台二进制（linux/darwin/windows）
 - 发布：tag 触发时自动创建 GitHub Release 并上传资产包
+
+### Docker 镜像发布
+
+- 工作流：`.github/workflows/docker-image.yml`
+- 镜像仓库：`ghcr.io/luke-chu/luke-chu-site-api`
+- 构建平台：`linux/amd64`、`linux/arm64`
+- 触发：`push main`、`push tag(v*)`、`workflow_dispatch`

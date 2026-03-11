@@ -148,6 +148,7 @@ go test ./...
 - 接口设计：`docs/api-design.md`
 - curl 示例：`docs/curl-examples.md`
 - 架构说明：`docs/architecture.md`
+- 部署说明：`docs/deploy.md`
 - OpenAPI 草稿：`api/openapi/openapi.yaml`
 
 ## 构建
@@ -164,6 +165,7 @@ go test ./...
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
+- `.github/workflows/docker-image.yml`
 
 ### CI 流程
 
@@ -192,3 +194,19 @@ go test ./...
 - 构建多平台二进制：`linux/amd64`、`linux/arm64`、`darwin/amd64`、`darwin/arm64`、`windows/amd64`
 - 自动打包产物（`tar.gz` / `zip`）
 - tag 触发时自动创建 GitHub Release 并上传产物
+
+### Docker 镜像流水线（GHCR）
+
+- 工作流：`.github/workflows/docker-image.yml`
+- 触发：`push main`、`push tag(v*)`、`pull_request`、手动触发
+- 构建：`linux/amd64`、`linux/arm64`
+- 推送：`ghcr.io/luke-chu/luke-chu-site-api`（PR 仅构建不推送）
+
+## 容器部署文件
+
+- `Dockerfile`
+- `.dockerignore`
+- `docker-compose.prod.yml`
+- `.env.prod.example`
+
+快速部署请参考 `docs/deploy.md`。

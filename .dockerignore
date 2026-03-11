@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.vscode
+bin
+test
+docs
+api
+scripts
+*.log
+.DS_Store
+.env
+.env.*
+!/.env.example
+

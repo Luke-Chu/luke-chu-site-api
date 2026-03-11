@@ -64,6 +64,11 @@ Query 参数：
 - `orientation`：`landscape|portrait|square`
 - `year`、`month`、`category`
 
+性能基线说明：
+
+- 当前列表查询已针对排序/筛选/关键词/标签关联补充索引迁移
+- 可用 `docs/sql/photo-list-explain.sql` 做 `EXPLAIN ANALYZE` 验证执行计划
+
 ```bash
 curl -G "http://localhost:8080/api/v1/photos" \
   --data-urlencode "q=天空,风筝" \

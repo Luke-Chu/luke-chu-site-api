@@ -1,3 +1,6 @@
--- TODO: 初始化图库业务表结构（photos/tags/photo_tag/photo_like 等）。
--- 第一版先提供项目骨架，后续补充完整 DDL、索引和约束。
-
+-- 第一版初始化 SQL 占位说明：
+-- 1) 业务基础表结构（photos/tags/photo_tags/photo_likes/photo_views/photo_downloads）已在数据库中维护。
+-- 2) 查询性能索引请执行：
+--    internal/db/migrations/000001_add_photo_query_indexes.up.sql
+-- 3) 列表查询执行计划验证示例：
+--    docs/sql/photo-list-explain.sql

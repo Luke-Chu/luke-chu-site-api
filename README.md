@@ -78,6 +78,24 @@ OSS_PRESIGN_EXPIRE_SECONDS=300
 - `POST /api/v1/photos/:uuid/unlike`
 - `POST /api/v1/photos/:uuid/download`（返回临时签名 URL）
 
+## 查询性能基线（图库列表）
+
+已新增索引迁移脚本：
+
+- `internal/db/migrations/000001_add_photo_query_indexes.up.sql`
+- `internal/db/migrations/000001_add_photo_query_indexes.down.sql`
+
+核心覆盖点：
+
+- 列表排序字段（`shot_time / like_count / view_count / download_count / created_at`）
+- 常用筛选字段（`year / month / orientation / category`）
+- 关键词搜索（`title_cn / title_en / filename / tags.name` 的 `ILIKE` 场景）
+- 标签关联查询（`photo_tags(tag_id, photo_id)`）
+
+性能验证模板：
+
+- `docs/sql/photo-list-explain.sql`（`EXPLAIN ANALYZE` 示例）
+
 ## 测试
 
 运行全部测试：

@@ -27,6 +27,21 @@
 
 说明：AK/SK 不写入代码，SDK 从环境变量读取 `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`。
 
+## 查询性能策略（第一版）
+
+围绕 `GET /api/v1/photos` 与 `GET /api/v1/filters`，当前已落地：
+
+1. 排序字段索引：`shot_time/like_count/view_count/download_count/created_at`（发布态部分索引）
+2. 过滤字段索引：`year/month/orientation/category`（发布态部分索引）
+3. 关键词检索索引：`title_cn/title_en/filename/tags.name` 的 `lower(...) + pg_trgm` 索引
+4. 标签关联索引：`photo_tags(tag_id, photo_id)`
+
+相关文件：
+
+- `internal/db/migrations/000001_add_photo_query_indexes.up.sql`
+- `internal/db/migrations/000001_add_photo_query_indexes.down.sql`
+- `docs/sql/photo-list-explain.sql`
+
 ## 测试策略
 
 - 单元测试：聚焦工具函数和请求归一化逻辑
